@@ -141,6 +141,47 @@ input {
   background: rgba(255, 255, 255, 0.02);
 }
 
+/* export progress bar (indeterminate) */
+@keyframes exportBar {
+  0% {
+    margin-left: -40%;
+    width: 40%;
+  }
+  100% {
+    margin-left: 100%;
+    width: 40%;
+  }
+}
+.export-bar {
+  animation: exportBar 1.1s infinite ease-in-out;
+}
+
+/* ============ RESPONSIVE ============ */
+.sidebar {
+  transition: transform 0.2s ease;
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+  .sidebar {
+    width: 180px !important;
+  }
+  .main {
+    margin-left: 180px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  .main {
+    margin-left: 0 !important;
+  }
+  .menu-btn {
+    display: inline-flex !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
