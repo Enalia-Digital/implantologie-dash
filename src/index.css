@@ -66,6 +66,18 @@ input {
   background: transparent;
 }
 
+/* ============ KPI GRIDS ============ */
+.kpi-grid-main {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.kpi-grid-detail {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
 /* ============ ANIMATIONS ============ */
 @keyframes fadeInUp {
   from {
@@ -179,6 +191,18 @@ input {
   }
   .menu-btn {
     display: inline-flex !important;
+  }
+  .kpi-grid-main {
+    grid-template-columns: 1fr;
+  }
+  .kpi-grid-detail {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .kpi-grid-detail {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
