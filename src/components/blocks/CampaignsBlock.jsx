@@ -51,7 +51,7 @@ export default function CampaignsBlock({ data }) {
                 <td style={{ ...td, textAlign: 'right', color: 'var(--text-primary)', fontWeight: 600 }}>{fmt(r.citas)}</td>
                 <td style={{ ...td, textAlign: 'right' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
-                    <span style={{ width: 36, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                    <span style={{ width: 36, height: 4, background: 'rgba(0,0,0,0.06)', borderRadius: 2, overflow: 'hidden' }}>
                       <span style={{ display: 'block', height: 4, width: `${(r.conv / maxConv) * 100}%`, background: convColor(r.conv), borderRadius: 2 }} />
                     </span>
                     <span style={{ color: convColor(r.conv), fontWeight: 600 }}>{fmtPct(r.conv)}</span>

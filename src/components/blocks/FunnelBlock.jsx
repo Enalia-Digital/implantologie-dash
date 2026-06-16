@@ -35,7 +35,7 @@ export default function FunnelBlock({ data }) {
               >
                 <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>{lvl.label}</span>
 
-                <div style={{ height: 38, background: 'rgba(255,255,255,0.03)', borderRadius: 6, overflow: 'hidden' }}>
+                <div style={{ height: 38, background: 'rgba(0,0,0,0.03)', borderRadius: 6, overflow: 'hidden' }}>
                   <div
                     className="bar-grow"
                     style={{
@@ -74,7 +74,7 @@ export default function FunnelBlock({ data }) {
                   {stepPct === null ? (i === 0 ? '100%' : '—') : (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
                       <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                        <path d="M4 6.5L1 2.5h6L4 6.5Z" fill="#55556A" />
+                        <path d="M4 6.5L1 2.5h6L4 6.5Z" fill="#9494A8" />
                       </svg>
                       {fmt(stepPct, 0)}%
                     </span>

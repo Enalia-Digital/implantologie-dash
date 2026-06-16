@@ -93,10 +93,10 @@ export default function HistoryBlock({ data }) {
         <div style={{ height: 200, marginTop: 24 }}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={hist} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="1 4" stroke="rgba(255,255,255,0.04)" vertical={false} />
-              <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fill: '#55556A', fontSize: 10 }} />
+              <CartesianGrid strokeDasharray="1 4" stroke="rgba(0,0,0,0.06)" vertical={false} />
+              <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fill: '#9494A8', fontSize: 10 }} />
               <YAxis hide />
-              <Tooltip content={<ChartTooltip formatter={(v, key) => (key === 'roi' ? `${fmt(v, 1)}×` : fmt(v))} />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+              <Tooltip content={<ChartTooltip formatter={(v, key) => (key === 'roi' ? `${fmt(v, 1)}×` : fmt(v))} />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
               <Legend wrapperStyle={{ fontSize: 11, color: 'var(--text-muted)' }} iconType="circle" iconSize={8} />
               <Bar dataKey="leads" name="Leads" fill="#BF00FF" radius={[3, 3, 0, 0]} barSize={14} />
               <Bar dataKey="citas" name="Citas" fill="#34C78A" radius={[3, 3, 0, 0]} barSize={14} />

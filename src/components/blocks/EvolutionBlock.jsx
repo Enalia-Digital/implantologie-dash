@@ -32,7 +32,7 @@ export default function EvolutionBlock({ data }) {
                     padding: '4px 10px',
                     borderRadius: 6,
                     border: `1px solid ${on ? 'var(--border-medium)' : 'var(--border-hairline)'}`,
-                    background: on ? 'rgba(255,255,255,0.04)' : 'transparent',
+                    background: on ? 'rgba(0,0,0,0.04)' : 'transparent',
                     fontSize: 11,
                     color: on ? 'var(--text-primary)' : 'var(--text-muted)',
                   }}
@@ -56,10 +56,10 @@ export default function EvolutionBlock({ data }) {
                   </linearGradient>
                 ))}
               </defs>
-              <CartesianGrid strokeDasharray="1 4" stroke="rgba(255,255,255,0.04)" vertical={false} />
-              <XAxis dataKey="dia" axisLine={false} tickLine={false} tick={{ fill: '#55556A', fontSize: 10 }} />
+              <CartesianGrid strokeDasharray="1 4" stroke="rgba(0,0,0,0.06)" vertical={false} />
+              <XAxis dataKey="dia" axisLine={false} tickLine={false} tick={{ fill: '#9494A8', fontSize: 10 }} />
               <YAxis hide />
-              <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.08)' }} />
+              <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgba(0,0,0,0.08)' }} />
               {SERIES.filter((s) => active[s.key]).map((s) => (
                 <Area
                   key={s.key}

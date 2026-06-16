@@ -16,8 +16,8 @@ function GoalRow({ label, base, actual }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
         <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 80, flexShrink: 0 }}>Objetivo</span>
-        <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 3 }}>
-          <div style={{ width: `${basePct}%`, height: '100%', background: 'rgba(255,255,255,0.15)', borderRadius: 3 }} />
+        <div style={{ flex: 1, height: 6, background: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
+          <div style={{ width: `${basePct}%`, height: '100%', background: 'rgba(0,0,0,0.12)', borderRadius: 3 }} />
         </div>
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', width: 48, textAlign: 'right' }}>
           {fmt(base)}%
@@ -26,7 +26,7 @@ function GoalRow({ label, base, actual }) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ fontSize: 11, color: 'var(--accent)', width: 80, flexShrink: 0 }}>Enalia</span>
-        <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 3 }}>
+        <div style={{ flex: 1, height: 6, background: 'rgba(0,0,0,0.06)', borderRadius: 3 }}>
           <div
             className="bar-grow"
             style={{

@@ -5,7 +5,7 @@ function barColor(i) {
   if (i === 0) return '#BF00FF';
   if (i === 1) return 'rgba(191,0,255,0.7)';
   if (i === 2) return '#4D8FE8';
-  return '#55556A';
+  return '#9494A8';
 }
 
 export default function ObjectionsBlock({ data }) {
@@ -25,7 +25,7 @@ export default function ObjectionsBlock({ data }) {
                   <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{fmt(o.count)}</span> · {fmt(o.pct)}%
                 </span>
               </div>
-              <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2 }}>
+              <div style={{ height: 4, background: 'rgba(0,0,0,0.06)', borderRadius: 2 }}>
                 <div
                   className="bar-grow"
                   style={{

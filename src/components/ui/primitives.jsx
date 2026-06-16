@@ -25,6 +25,7 @@ export function Card({ children, style, accent, accentColor, className = '', ...
         borderLeft: accent ? `2px solid ${accentColor || C.accent}` : `1px solid ${C.subtle}`,
         borderRadius: 10,
         padding: 20,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         transition: 'border-color 0.15s ease',
         ...style,
       }}
@@ -120,7 +121,7 @@ export function ScoreDots({ score = 0, max = 10 }) {
             width: 5,
             height: 5,
             borderRadius: '50%',
-            background: i < filled ? C.accent : 'rgba(255,255,255,0.12)',
+            background: i < filled ? C.accent : 'rgba(0,0,0,0.10)',
           }}
         />
       ))}
@@ -147,7 +148,7 @@ export function CountUpValue({ value, decimals = 0, suffix = '', color, deps = [
 export function ProgressBar({ pct, markerPct, color = C.accent, height = 6, animate = true }) {
   const clamped = Math.max(0, Math.min(100, pct));
   return (
-    <div style={{ position: 'relative', height, background: 'rgba(255,255,255,0.05)', borderRadius: height / 2 }}>
+    <div style={{ position: 'relative', height, background: 'rgba(0,0,0,0.06)', borderRadius: height / 2 }}>
       <div
         className={animate ? 'bar-grow' : undefined}
         style={{
@@ -165,7 +166,7 @@ export function ProgressBar({ pct, markerPct, color = C.accent, height = 6, anim
             bottom: -3,
             left: `${Math.max(0, Math.min(100, markerPct))}%`,
             width: 2,
-            background: 'rgba(255,255,255,0.85)',
+            background: 'rgba(0,0,0,0.5)',
             borderRadius: 1,
           }}
         />

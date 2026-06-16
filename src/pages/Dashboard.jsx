@@ -98,7 +98,7 @@ function ExportOverlay() {
     <div
       style={{
         position: 'fixed', inset: 0, zIndex: 100,
-        background: 'rgba(9,9,14,0.85)', backdropFilter: 'blur(8px)',
+        background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
     >
@@ -111,7 +111,7 @@ function ExportOverlay() {
         <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 16 }}>
           Generando informe…
         </div>
-        <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ height: 4, background: 'rgba(0,0,0,0.06)', borderRadius: 2, overflow: 'hidden' }}>
           <div className="export-bar" style={{ height: 4, background: 'var(--accent)', borderRadius: 2 }} />
         </div>
       </div>
