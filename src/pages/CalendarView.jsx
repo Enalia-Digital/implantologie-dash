@@ -4,9 +4,9 @@ import { clinicHeader } from '../data/mockData';
 
 const CALENDAR_URLS = {
   general: null,
-  triana: '',
-  los_palacios: '',
-  san_jose: '',
+  triana: 'https://calendar.google.com/calendar/embed?height=600&wkst=1&ctz=Europe%2FMadrid&showPrint=0&showCalendars=0&showTz=0&src=MGJkMDk5MmE4NWUwNTMwMjk5M2E4YjRmMmU3NjU2YzBiZGRmZWNhMmJiOGEzM2UyZWJlYmRhMGE0ZGQ4OTFlNEBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&color=%238e24aa',
+  los_palacios: 'https://calendar.google.com/calendar/embed?height=600&wkst=1&ctz=Europe%2FMadrid&showPrint=0&showTabs=0&showCalendars=0&showTz=0&src=N2MwNzc5NmE3MDJkYzU3OWUwNWVlNjYzNjdkMTRiZTVjNzUyYWExNjgzMjliNmU2ZmE3Zjg0MmVhMmQ3YWU4MEBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&color=%23d50000',
+  san_jose: 'https://calendar.google.com/calendar/embed?height=600&wkst=1&ctz=Europe%2FMadrid&showPrint=0&showTz=0&showCalendars=0&src=MmI5YjJhNzAxZGU4Y2Q2ZDFmYWU4YzM0MTM2ZjMwODRmNzg4MzVhNzVhZTI1ZDYyMzg5ZWVlYzI5M2RiYTQ3M0Bncm91cC5jYWxlbmRhci5nb29nbGUuY29t&color=%234285f4',
 };
 
 export default function CalendarView() {
