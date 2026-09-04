@@ -105,10 +105,12 @@ const OBJECTION_MAP = [
   { category: 'Información', patterns: ['información', 'informacion', 'info', 'pregunta', 'saber más', 'detalles'] },
 ];
 
-// Una llamada se considera ATENDIDA solo si el lead descolgó (hubo duración).
+// Una llamada se considera ATENDIDA solo si el lead descolgó y hubo conversación real.
+// Umbral: 40 s. Por debajo suele ser buzón de voz o descuelgue+colgar sin hablar.
 // duration_seconds = 0 significa que sonó pero nadie cogió el teléfono.
+const MIN_CONTACT_SECONDS = 40;
 function fueAtendida(call) {
-  return Number(call.duration_seconds) > 0;
+  return Number(call.duration_seconds) >= MIN_CONTACT_SECONDS;
 }
 
 function normalizeObjection(raw) {
