@@ -7,7 +7,7 @@ function RecordingButton() {
       onClick={(e) => e.stopPropagation()}
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 10px', fontSize: 11, color: 'var(--text-secondary)' }}
     >
-      <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#9494A8" strokeWidth="1.2">
+      <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="var(--text-muted)" strokeWidth="1.2">
         <path d="M4 3l5 3-5 3V3Z" strokeLinejoin="round" />
       </svg>
       Grabación
@@ -47,7 +47,7 @@ export default function LeadsBlock({ data }) {
                 <RecordingButton />
               </div>
               {expanded && (
-                <div className="fade-in-up" style={{ padding: '0 20px 16px', background: 'rgba(0,0,0,0.02)' }}>
+                <div className="fade-in-up" style={{ padding: '0 20px 16px', background: 'var(--bg-hover)' }}>
                   <div style={{ paddingTop: 12, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                     {lead.summary || 'Sin resumen de la llamada.'}
                   </div>

@@ -17,7 +17,12 @@ export default function EvolutionBlock({ data }) {
       <SectionLabel>Evolución Temporal</SectionLabel>
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>Rendimiento diario</span>
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>Rendimiento diario</span>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+              Contactados = leads que cogieron el teléfono
+            </span>
+          </span>
           <div style={{ display: 'flex', gap: 6 }}>
             {SERIES.map((s) => {
               const on = active[s.key];
@@ -32,7 +37,7 @@ export default function EvolutionBlock({ data }) {
                     padding: '4px 10px',
                     borderRadius: 6,
                     border: `1px solid ${on ? 'var(--border-medium)' : 'var(--border-hairline)'}`,
-                    background: on ? 'rgba(0,0,0,0.04)' : 'transparent',
+                    background: on ? 'var(--bg-hover)' : 'transparent',
                     fontSize: 11,
                     color: on ? 'var(--text-primary)' : 'var(--text-muted)',
                   }}
@@ -56,10 +61,10 @@ export default function EvolutionBlock({ data }) {
                   </linearGradient>
                 ))}
               </defs>
-              <CartesianGrid strokeDasharray="1 4" stroke="rgba(0,0,0,0.06)" vertical={false} />
-              <XAxis dataKey="dia" axisLine={false} tickLine={false} tick={{ fill: '#9494A8', fontSize: 10 }} />
+              <CartesianGrid strokeDasharray="1 4" stroke="var(--chart-grid)" vertical={false} />
+              <XAxis dataKey="dia" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
               <YAxis hide />
-              <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgba(0,0,0,0.08)' }} />
+              <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--border-subtle)' }} />
               {SERIES.filter((s) => active[s.key]).map((s) => (
                 <Area
                   key={s.key}

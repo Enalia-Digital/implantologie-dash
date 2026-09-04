@@ -4,7 +4,7 @@ import { defaultConfig } from '../data/config';
 const ClinicContext = createContext(null);
 
 const CLINIC_KEY = 'enalia.activeClinic';
-const PERIOD_KEY = 'enalia.period';
+const PERIOD_KEY = 'enalia.period.v2';
 const CONFIG_KEY = 'enalia.config';
 
 function readJSON(key, fallback) {
@@ -25,15 +25,15 @@ function readString(key, fallback) {
 }
 
 export const PERIODS = [
-  { id: 'week', label: 'Esta semana' },
-  { id: 'month', label: 'Este mes' },
-  { id: 'last_month', label: 'Mes pasado' },
-  { id: 'last_90', label: 'Últimos 90 días' },
+  { id: 'week', label: 'Esta semana', short: 'Semana' },
+  { id: 'month', label: 'Este mes', short: 'Mes' },
+  { id: 'last_month', label: 'Mes pasado', short: 'Mes pasado' },
+  { id: 'last_90', label: 'Últimos 90 días', short: '90 días' },
 ];
 
 export function ClinicProvider({ children }) {
   const [activeClinic, setActiveClinicState] = useState(() => readString(CLINIC_KEY, 'general'));
-  const [period, setPeriodState] = useState(() => readString(PERIOD_KEY, 'month'));
+  const [period, setPeriodState] = useState(() => readString(PERIOD_KEY, 'last_90'));
   const [config, setConfigState] = useState(() => ({ ...defaultConfig, ...readJSON(CONFIG_KEY, {}) }));
 
   const setActiveClinic = useCallback((id) => {

@@ -8,14 +8,17 @@ function leadCita(row) {
   return r === null ? null : r * 100;
 }
 
+function eurPorCita(row) {
+  return safeDiv(row.coste, row.citas);
+}
+
 const ROWS = [
   { key: 'leads', label: 'Leads', get: (r) => r.leads, fmt: (v) => fmt(v), delta: 'num' },
   { key: 'citas', label: 'Citas', get: (r) => r.citas, fmt: (v) => fmt(v), delta: 'num' },
   { key: 'asistidas', label: 'Asistidas', get: (r) => r.asistidas, fmt: (v) => fmt(v), delta: 'num' },
   { key: 'tasa', label: 'Tasa lead → cita', get: (r) => leadCita(r), fmt: (v) => fmtPct(v), delta: 'pts' },
   { key: 'coste', label: 'Coste', get: (r) => r.coste, fmt: (v) => fmtEur(v, 2), delta: 'none' },
-  { key: 'revenue', label: 'Revenue', get: (r) => r.revenue, fmt: (v) => fmtEur(v), delta: 'none' },
-  { key: 'roi', label: 'ROI', get: (r) => r.roi, fmt: (v) => (isNum(v) ? `${fmt(v, 1)}×` : '—'), delta: 'none' },
+  { key: 'eurPorCita', label: '€ por Cita', get: (r) => eurPorCita(r), fmt: (v) => fmtEur(v, 2), delta: 'none' },
 ];
 
 function Cell({ row, hist, idx }) {
@@ -61,7 +64,7 @@ export default function HistoryBlock({ data }) {
                       fontSize: 11,
                       fontWeight: 600,
                       color: i === lastIdx ? 'var(--accent)' : 'var(--text-secondary)',
-                      background: i === lastIdx ? 'rgba(191,0,255,0.04)' : 'transparent',
+                      background: i === lastIdx ? 'var(--accent-dim)' : 'transparent',
                     }}
                   >
                     {m.mes}
@@ -74,7 +77,7 @@ export default function HistoryBlock({ data }) {
                 <tr key={row.key} style={{ borderTop: '1px solid var(--border-hairline)' }}>
                   <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{row.label}</td>
                   {hist.map((m, i) => (
-                    <td key={m.mes} style={{ padding: 0, background: i === lastIdx ? 'rgba(191,0,255,0.04)' : 'transparent' }}>
+                    <td key={m.mes} style={{ padding: 0, background: i === lastIdx ? 'var(--accent-dim)' : 'transparent' }}>
                       <table style={{ width: '100%' }}>
                         <tbody>
                           <tr>
@@ -93,14 +96,14 @@ export default function HistoryBlock({ data }) {
         <div style={{ height: 200, marginTop: 24 }}>
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={hist} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="1 4" stroke="rgba(0,0,0,0.06)" vertical={false} />
-              <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fill: '#9494A8', fontSize: 10 }} />
+              <CartesianGrid strokeDasharray="1 4" stroke="var(--chart-grid)" vertical={false} />
+              <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
               <YAxis hide />
-              <Tooltip content={<ChartTooltip formatter={(v, key) => (key === 'roi' ? `${fmt(v, 1)}×` : fmt(v))} />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+              <Tooltip content={<ChartTooltip formatter={(v, key) => (key === 'eurPorCita' ? fmtEur(v, 2) : fmt(v))} />} cursor={{ fill: 'var(--bg-hover)' }} />
               <Legend wrapperStyle={{ fontSize: 11, color: 'var(--text-muted)' }} iconType="circle" iconSize={8} />
-              <Bar dataKey="leads" name="Leads" fill="#BF00FF" radius={[3, 3, 0, 0]} barSize={14} />
-              <Bar dataKey="citas" name="Citas" fill="#34C78A" radius={[3, 3, 0, 0]} barSize={14} />
-              <Line type="monotone" dataKey="roi" name="ROI" stroke="#BF00FF" strokeWidth={2} dot={{ r: 3, fill: '#BF00FF' }} connectNulls={false} />
+              <Bar dataKey="leads" name="Leads" fill="var(--accent)" radius={[3, 3, 0, 0]} barSize={14} />
+              <Bar dataKey="citas" name="Citas" fill="var(--green)" radius={[3, 3, 0, 0]} barSize={14} />
+              <Line type="monotone" dataKey="eurPorCita" name="€/Cita" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3, fill: 'var(--accent)' }} connectNulls={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

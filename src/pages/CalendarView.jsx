@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import AppLayout from '../components/layout/AppLayout';
 import { useClinic } from '../context/ClinicContext';
 import { clinicHeader } from '../data/mockData';
@@ -10,25 +11,20 @@ const CALENDAR_URLS = {
 };
 
 export default function CalendarView() {
-  const { activeClinic } = useClinic();
+  const { activeClinic, setActiveClinic } = useClinic();
+
+  useEffect(() => {
+    if (activeClinic === 'general') {
+      setActiveClinic('triana');
+    }
+  }, [activeClinic, setActiveClinic]);
+
   const url = CALENDAR_URLS[activeClinic];
-  const isGeneral = activeClinic === 'general';
 
   return (
     <AppLayout>
       <div style={{ padding: '24px 32px', height: 'calc(100vh - 52px)' }}>
-        {isGeneral ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                Selecciona una clínica para ver su calendario
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                Usa el selector de clínicas del sidebar
-              </div>
-            </div>
-          </div>
-        ) : url ? (
+        {url ? (
           <iframe
             src={url}
             style={{

@@ -33,6 +33,16 @@ export function fmtPct(v, decimals = 1) {
   return `${fmt(v, decimals)}%`;
 }
 
+// Formatea una duración en segundos: "45 s", "1 min 18 s", "12 min". null → "—".
+export function fmtDuracion(seconds) {
+  if (!isNum(seconds)) return DASH;
+  const total = Math.round(seconds);
+  if (total < 60) return `${total} s`;
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return s === 0 ? `${m} min` : `${m} min ${s} s`;
+}
+
 // División segura → null si no calculable.
 export function safeDiv(a, b) {
   if (!isNum(a) || !isNum(b) || b === 0) return null;
@@ -51,11 +61,15 @@ export function tasaAsistencia(d) {
   return r === null ? null : r * 100;
 }
 
-// Tasa llamada -> reunión = citasAgendadas / leadsContactados * 100
-export function tasaLlamadaReunion(d) {
+// Agendamiento sobre CONTACTADOS = citasAgendadas / leadsContactados * 100.
+// Mide la eficacia de la conversación, sin penalizar a quien no descuelga.
+export function tasaAgendamientoSobreContacto(d) {
   const r = safeDiv(d.citasAgendadas, d.leadsContactados);
   return r === null ? null : r * 100;
 }
+
+// Alias histórico.
+export const tasaLlamadaReunion = tasaAgendamientoSobreContacto;
 
 // Intentos medios por lead.
 export function intentosPorLead(d) {
@@ -65,26 +79,24 @@ export function intentosPorLead(d) {
 // Comisión por asistencias por encima de la base.
 export function comision(d, config) {
   if (!isNum(d.citasAsistidas)) {
-    return { asistidasBase: null, asistidasExtra: null, comision: null };
+    return { citasBase: null, citasExtra: null, comision: null };
   }
-  const asistidasBase = Math.round((d.citasAgendadas * config.baseAsistencia) / 100);
-  const asistidasExtra = Math.max(0, d.citasAsistidas - asistidasBase);
+  const citasBase = Math.round((d.totalLeads * config.baseAgendamiento) / 100);
+  const citasExtra = Math.max(0, d.citasAsistidas - citasBase);
   return {
-    asistidasBase,
-    asistidasExtra,
-    comision: asistidasExtra * config.feePorAsistida,
+    citasBase,
+    citasExtra,
+    comision: citasExtra * config.feePorAsistida,
   };
 }
 
 // Niveles del embudo de conversión.
 export function funnelLevels(d) {
   return [
-    { key: 'leads', label: 'Leads Captados', value: d.totalLeads, color: '#BF00FF' },
+    { key: 'leads', label: 'Leads Entrantes', value: d.totalLeads, color: '#BF00FF' },
     { key: 'contactados', label: 'Contactados', value: d.leadsContactados, color: 'rgba(191,0,255,0.78)' },
-    { key: 'cualificados', label: 'Cualificados', value: d.cualificados, color: '#7B5BF0' },
-    { key: 'citas', label: 'Citas Agendadas', value: d.citasAgendadas, color: '#4D8FE8' },
-    { key: 'confirmadas', label: 'Confirmadas', value: d.confirmadas, color: '#34C78A' },
-    { key: 'asistencias', label: 'Asistencias', value: d.citasAsistidas, color: '#27AE84', striped: !isNum(d.citasAsistidas) },
+    { key: 'citas', label: 'Agendados', value: d.citasAgendadas, color: '#4D8FE8' },
+    { key: 'asistencias', label: 'Asistidos', value: d.citasAsistidas, color: '#27AE84', striped: !isNum(d.citasAsistidas) },
   ];
 }
 
@@ -106,11 +118,9 @@ export function biggestDrop(d) {
 }
 
 const RECOMMENDATIONS = {
-  contactados: 'Reforzar la velocidad de primer contacto y reintentos. Muchos leads no llegan a ser contactados; ampliar la franja horaria de llamadas y los reintentos automáticos.',
-  cualificados: 'Afinar el guion de cualificación. Se pierde volumen entre contacto y cualificación: revisar preguntas clave y filtros de intención.',
-  citas: 'Mejorar el cierre hacia cita. Trabajar objeciones de precio con ofertas de financiación y reforzar la propuesta de valor en la llamada.',
-  confirmadas: 'Implementar recordatorios y confirmaciones automáticas para reducir la caída entre cita agendada y confirmada.',
-  asistencias: 'Reducir el no-show con confirmación 24h antes, recordatorio por SMS y gestión activa de reprogramaciones.',
+  contactados: 'Optimizar el ratio de respuesta. Muchos leads no descolgan la llamada automática; revisar franjas horarias de mayor respuesta y ajustar el número de reintentos en el flujo automatizado.',
+  citas: 'Mejorar el cierre hacia cita. Trabajar objeciones de precio con ofertas de financiación y reforzar la propuesta de valor en la conversación automatizada.',
+  asistencias: 'Reducir el no-show con confirmación 24h antes, recordatorio por WhatsApp/SMS y gestión activa de reprogramaciones.',
 };
 
 export function recommendationFor(toKey) {

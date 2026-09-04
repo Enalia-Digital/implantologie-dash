@@ -6,6 +6,18 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vite", "--port", "3000", "--strictPort"],
       "port": 3000
+    },
+    {
+      "name": "prod-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "preview", "--port", "4173", "--strictPort"],
+      "port": 4173
+    },
+    {
+      "name": "enalia-os",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../enalia-os", "run", "dev", "--", "-p", "3001"],
+      "port": 3001
     }
   ]
 }

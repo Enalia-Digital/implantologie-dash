@@ -121,7 +121,7 @@ export function ScoreDots({ score = 0, max = 10 }) {
             width: 5,
             height: 5,
             borderRadius: '50%',
-            background: i < filled ? C.accent : 'rgba(0,0,0,0.10)',
+            background: i < filled ? C.accent : 'var(--bar-bg)',
           }}
         />
       ))}
@@ -134,12 +134,13 @@ export function SkeletonBox({ width = '100%', height = 16, radius = 6, style }) 
 }
 
 // Número grande con count-up; muestra "—" cuando el valor no es numérico.
-export function CountUpValue({ value, decimals = 0, suffix = '', color, deps = [], style }) {
+export function CountUpValue({ value, decimals = 0, suffix = '', color, deps = [], style, format }) {
   const numeric = typeof value === 'number' && Number.isFinite(value);
   const v = useCountUp(numeric ? value : 0, 800, deps);
+  if (!numeric) return <span style={{ color, ...style }}>—</span>;
   return (
     <span style={{ color, ...style }}>
-      {numeric ? `${fmt(v, decimals)}${suffix}` : '—'}
+      {format ? format(v) : `${fmt(v, decimals)}${suffix}`}
     </span>
   );
 }
@@ -148,7 +149,7 @@ export function CountUpValue({ value, decimals = 0, suffix = '', color, deps = [
 export function ProgressBar({ pct, markerPct, color = C.accent, height = 6, animate = true }) {
   const clamped = Math.max(0, Math.min(100, pct));
   return (
-    <div style={{ position: 'relative', height, background: 'rgba(0,0,0,0.06)', borderRadius: height / 2 }}>
+    <div style={{ position: 'relative', height, background: 'var(--bar-bg)', borderRadius: height / 2 }}>
       <div
         className={animate ? 'bar-grow' : undefined}
         style={{
@@ -166,7 +167,7 @@ export function ProgressBar({ pct, markerPct, color = C.accent, height = 6, anim
             bottom: -3,
             left: `${Math.max(0, Math.min(100, markerPct))}%`,
             width: 2,
-            background: 'rgba(0,0,0,0.5)',
+            background: 'var(--text-muted)',
             borderRadius: 1,
           }}
         />

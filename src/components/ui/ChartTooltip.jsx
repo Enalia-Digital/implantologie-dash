@@ -5,12 +5,12 @@ export default function ChartTooltip({ active, payload, label, formatter }) {
   return (
     <div
       style={{
-        background: '#FFFFFF',
-        border: '1px solid rgba(0,0,0,0.08)',
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-subtle)',
         borderRadius: 6,
         padding: '8px 12px',
         fontSize: 11,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
       }}
     >
       {label != null && <div style={{ color: 'var(--text-secondary)', marginBottom: 6 }}>{label}</div>}

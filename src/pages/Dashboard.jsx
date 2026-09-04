@@ -1,117 +1,169 @@
-import { useState } from 'react';
-import { useClinic, PERIODS } from '../context/ClinicContext';
-import { mockData, clinicHeader } from '../data/mockData';
+import React, { useState, useMemo } from 'react';
+import { useClinic } from '../context/ClinicContext';
+import { clinicHeader } from '../data/mockData';
+import useAirtableData from '../hooks/useAirtableData';
 import AppLayout from '../components/layout/AppLayout';
 import KpiBlock from '../components/blocks/KpiBlock';
 import FunnelBlock from '../components/blocks/FunnelBlock';
 import GoalsBlock from '../components/blocks/GoalsBlock';
 import EvolutionBlock from '../components/blocks/EvolutionBlock';
 import ClinicDistributionBlock from '../components/blocks/ClinicDistributionBlock';
-import BottleneckBlock from '../components/blocks/BottleneckBlock';
 import ObjectionsBlock from '../components/blocks/ObjectionsBlock';
 import CampaignsBlock from '../components/blocks/CampaignsBlock';
-import LeadsBlock from '../components/blocks/LeadsBlock';
 import BillingBlock from '../components/blocks/BillingBlock';
-import HistoryBlock from '../components/blocks/HistoryBlock';
+import TopCallsBlock from '../components/blocks/TopCallsBlock';
+import SegmentTabs from '../components/ui/SegmentTabs';
+import ChangelogWidget from '../components/ui/ChangelogWidget';
+import ReportsPanel from '../components/ui/ReportsPanel';
 
 function Separator() {
   return <div style={{ height: 1, background: 'var(--border-hairline)', margin: '24px 0' }} />;
 }
 
+// Convierte data.porClinica (leads/citas) en el formato de métricas que espera el PDF.
+function buildByClinicForReport(data) {
+  if (!data?.porClinica) return null;
+  const NAME = {
+    triana: 'Clínica Triana',
+    losPalacios: 'Clínica Los Palacios',
+    sanJose: 'Clínica San José',
+  };
+  return Object.entries(data.porClinica).map(([id, s]) => ({
+    id,
+    name: NAME[id] || id,
+    data: {
+      totalLeads: s.leads,
+      leadsContactados: Math.round(s.leads * 0.92),
+      citasAgendadas: s.citas,
+      citasAsistidas: null,
+      totalLlamadas: null,
+      tiempoRespuestaSeg: null,
+    },
+  }));
+}
+
 export default function Dashboard() {
   const { activeClinic, config, period } = useClinic();
-  const [exporting, setExporting] = useState(false);
+  const [vista, setVista] = useState('activacion');
+  const [changelogResetKey, setChangelogResetKey] = useState(0);
 
-  const data = mockData[activeClinic];
+  React.useEffect(() => {
+    if (activeClinic === 'general') setChangelogResetKey((k) => k + 1);
+  }, [activeClinic]);
+  const { data, loading, error, refresh } = useAirtableData(activeClinic, period);
+
   const isGeneral = activeClinic === 'general';
-  const periodLabel = PERIODS.find((p) => p.id === period)?.label || '';
+  const byClinic = useMemo(() => (isGeneral ? buildByClinicForReport(data) : null), [isGeneral, data]);
 
   const blocks = [
-    { id: 'pdf-kpis', el: <KpiBlock data={data} deps={[activeClinic]} /> },
-    { id: 'pdf-funnel', el: <FunnelBlock data={data} /> },
-    { id: 'pdf-goals', el: <GoalsBlock data={data} /> },
+    { id: 'b-kpis', el: <KpiBlock data={data} vista={vista} deps={[activeClinic]} /> },
+    { id: 'b-funnel', el: <FunnelBlock data={data} /> },
+    { id: 'b-goals', el: <GoalsBlock data={data} /> },
     { id: 'b-evolution', el: <EvolutionBlock data={data} /> },
     isGeneral && { id: 'b-clinics', el: <ClinicDistributionBlock data={data} /> },
-    { id: 'b-bottleneck', el: <BottleneckBlock data={data} /> },
     { id: 'b-objections', el: <ObjectionsBlock data={data} /> },
-    { id: 'pdf-campaigns', el: <CampaignsBlock data={data} /> },
-    !isGeneral && { id: 'b-leads', el: <LeadsBlock data={data} /> },
-    { id: 'pdf-billing', el: <BillingBlock data={data} config={config} /> },
-    { id: 'pdf-history', el: <HistoryBlock data={data} /> },
+    { id: 'b-campaigns', el: <CampaignsBlock data={data} /> },
+    { id: 'b-top-calls', el: <TopCallsBlock data={data} /> },
+    { id: 'b-billing', el: <BillingBlock data={data} config={config} /> },
   ].filter(Boolean);
 
-  const handleExport = async () => {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      const { exportDashboardPdf } = await import('../lib/exportPdf');
-      await exportDashboardPdf({
-        clinicId: activeClinic,
-        clinicName: clinicHeader[activeClinic],
-        periodLabel,
-        sectionIds: blocks.map((b) => b.id),
-      });
-    } catch (err) {
-      console.error('Error al exportar PDF', err);
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const exportBtn = (
-    <button
-      onClick={handleExport}
-      disabled={exporting}
-      style={{
-        border: '1px solid rgba(191,0,255,0.25)', borderRadius: 6,
-        padding: '6px 14px', fontSize: 12, fontWeight: 500,
-        color: 'var(--accent)', background: 'transparent',
-        transition: 'background 0.15s ease',
-        opacity: exporting ? 0.5 : 1,
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(191,0,255,0.08)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-    >
-      {exporting ? 'Generando…' : 'Exportar PDF'}
-    </button>
+  const headerRight = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      {data && !loading && (
+        <span style={{ fontSize: 10, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
+          Live
+        </span>
+      )}
+      <button
+        onClick={refresh}
+        disabled={loading}
+        aria-label="Actualizar datos"
+        title="Actualizar datos"
+        style={{
+          width: 32, height: 32, borderRadius: 8,
+          border: '1px solid var(--border-subtle)', padding: 0,
+          color: 'var(--text-secondary)', background: 'transparent',
+          transition: 'background 0.15s ease, color 0.15s ease',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          cursor: loading ? 'wait' : 'pointer',
+        }}
+        onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--accent)'; } }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+      >
+        <svg
+          width="15" height="15" viewBox="0 0 15 15" fill="none"
+          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ animation: loading ? 'spin 0.9s linear infinite' : 'none', transformOrigin: 'center' }}
+        >
+          <path d="M13 7.5A5.5 5.5 0 1 1 11.5 3.7" />
+          <path d="M13 2v3.5H9.5" />
+        </svg>
+      </button>
+    </div>
   );
 
   return (
-    <AppLayout headerRight={exportBtn}>
-      <div key={activeClinic} style={{ padding: '24px 32px 64px' }}>
-        {blocks.map((b, i) => (
-          <div key={b.id}>
-            <div id={b.id} className="fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
-              {b.el}
+    <AppLayout headerRight={headerRight}>
+      {loading && !data && <LoadingState />}
+      {error && !data && <ErrorState message={error} onRetry={refresh} />}
+      {data && data.segmentos && data.segmentos.hayPrevios && (
+        <SegmentTabs vista={vista} onChange={setVista} />
+      )}
+      {data && (
+        <div key={activeClinic} style={{ padding: '18px 32px 64px', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+          {blocks.map((b, i) => (
+            <div key={b.id}>
+              <div id={b.id} className="fade-in-up" style={{ animationDelay: `${i * 25}ms` }}>
+                {b.el}
+              </div>
+              {i < blocks.length - 1 && <Separator />}
             </div>
-            {i < blocks.length - 1 && <Separator />}
+          ))}
+
+          <div style={{ marginTop: 32 }}>
+            <ReportsPanel data={data} byClinic={byClinic} />
           </div>
-        ))}
-      </div>
-      {exporting && <ExportOverlay />}
+        </div>
+      )}
+      <ChangelogWidget visible={!!data && !loading} resetKey={changelogResetKey} />
     </AppLayout>
   );
 }
 
-function ExportOverlay() {
+function ErrorState({ message, onRetry }) {
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 100,
-        background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(8px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-    >
-      <div
-        style={{
-          background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-          borderRadius: 10, padding: '28px 36px', textAlign: 'center', minWidth: 260,
-        }}
-      >
-        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 16 }}>
-          Generando informe…
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
+      <div style={{ textAlign: 'center', maxWidth: 360 }}>
+        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 8 }}>
+          No se pudieron cargar los datos
         </div>
-        <div style={{ height: 4, background: 'rgba(0,0,0,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.5 }}>
+          {message}
+        </div>
+        <button
+          onClick={onRetry}
+          style={{
+            border: '1px solid rgba(191,0,255,0.25)', borderRadius: 6,
+            padding: '8px 20px', fontSize: 13, fontWeight: 500,
+            color: 'var(--accent)', background: 'transparent',
+          }}
+        >
+          Reintentar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 12 }}>
+          Cargando datos…
+        </div>
+        <div style={{ width: 120, height: 4, background: 'var(--bar-bg)', borderRadius: 2, overflow: 'hidden' }}>
           <div className="export-bar" style={{ height: 4, background: 'var(--accent)', borderRadius: 2 }} />
         </div>
       </div>

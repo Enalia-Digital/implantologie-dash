@@ -57,16 +57,16 @@ export default function BillingBlock({ data, config }) {
             <tr style={{ borderTop: '1px solid var(--border-hairline)' }}>
               <td style={td}>Coste llamadas</td>
               <td style={{ ...td, textAlign: 'right' }}>
-                {fmt(data.callMinutes)} min · {fmt(config.costePorMinuto, 2)} €/min
+                {fmt(data.callMinutes, 1)} min · {fmt(config.costePorMinuto, 2)} €/min
               </td>
               <td style={{ ...td, textAlign: 'right', color: 'var(--text-primary)', fontWeight: 600 }}>
                 {fmtEur(data.costeLlamadas, 2)}
               </td>
             </tr>
             <tr style={{ borderTop: '1px solid var(--border-hairline)' }}>
-              <td style={td}>Comisión por asistencia</td>
+              <td style={td}>Comisión por citas asistidas (&gt;25% base)</td>
               <td style={{ ...td, textAlign: 'right' }}>
-                {isNum(com.asistidasExtra) ? `${fmt(com.asistidasExtra)} citas · ${config.feePorAsistida} €` : 'Pendiente'}
+                {isNum(com.citasExtra) ? `${fmt(com.citasExtra)} citas · ${config.feePorAsistida} €` : 'Se actualiza cada día'}
               </td>
               <td style={{ ...td, textAlign: 'right', color: 'var(--text-primary)', fontWeight: 600 }}>
                 {isNum(com.comision) ? fmtEur(com.comision) : '—'}
@@ -76,16 +76,16 @@ export default function BillingBlock({ data, config }) {
               <td
                 style={{
                   fontSize: 13, fontWeight: 700, color: 'var(--accent)',
-                  padding: '12px 12px', background: 'rgba(191,0,255,0.06)',
+                  padding: '12px 12px', background: 'var(--accent-dim)',
                 }}
               >
                 TOTAL
               </td>
-              <td style={{ background: 'rgba(191,0,255,0.06)' }} />
+              <td style={{ background: 'var(--accent-dim)' }} />
               <td
                 style={{
                   fontSize: 15, fontWeight: 700, color: 'var(--accent)',
-                  textAlign: 'right', padding: '12px 12px', background: 'rgba(191,0,255,0.06)',
+                  textAlign: 'right', padding: '12px 12px', background: 'var(--accent-dim)',
                 }}
               >
                 {fmtEur(total)}

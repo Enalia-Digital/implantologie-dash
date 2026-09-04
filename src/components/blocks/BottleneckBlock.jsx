@@ -23,7 +23,7 @@ export default function BottleneckBlock({ data }) {
           </div>
           <div>
             <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10 }}>
-              Recomendación
+              Acción sugerida
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
               {recommendationFor(drop.toKey)}
