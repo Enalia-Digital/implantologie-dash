@@ -113,6 +113,21 @@ function fueAtendida(call) {
   return Number(call.duration_seconds) >= MIN_CONTACT_SECONDS;
 }
 
+// Horario de llamadas del sistema (Europa/Madrid). Fuera de esta ventana no se
+// puede llamar, así que el delta lead→llamada no mide reacción sino la espera
+// hasta el arranque del horario. Excluimos esos leads del "Tiempo Respuesta".
+const BUSINESS_HOUR_START = 9;
+const BUSINESS_HOUR_END = 21;
+const TZ_HOUR_FMT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Madrid', hour: '2-digit', hour12: false,
+});
+function entryEnHorario(iso) {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return false;
+  const h = parseInt(TZ_HOUR_FMT.format(new Date(t)), 10);
+  return h >= BUSINESS_HOUR_START && h < BUSINESS_HOUR_END;
+}
+
 function normalizeObjection(raw) {
   if (!raw || typeof raw !== 'string') return null;
   const lower = raw.toLowerCase().trim();
@@ -316,11 +331,13 @@ export function transformData(raw, clinicId, period) {
     if (prev === undefined || t < prev) firstCallByLead.set(lid, t);
   });
 
-  // Mediana + tope de 24 h: los leads re-trabajados semanas después son ruido
-  // para esta métrica (mide reacción a un lead nuevo, no repesca de la BBDD).
+  // Solo leads que entran dentro del horario de llamadas y cuya primera llamada
+  // llega en menos de 24 h. Fuera de horario, o leads re-trabajados días
+  // después, no representan la reacción a un lead nuevo.
   const MAX_RESPONSE_SEG = 24 * 60 * 60;
   const responseDeltas = [];
   periodLeads.forEach((l) => {
+    if (!entryEnHorario(l._createdTime)) return;
     const leadT = new Date(l._createdTime).getTime();
     const callT = firstCallByLead.get(String(l.lead_id).trim());
     if (!Number.isFinite(leadT) || callT === undefined) return;
@@ -459,6 +476,7 @@ export function transformData(raw, clinicId, period) {
     const MAX_RESP = 24 * 60 * 60;
     const deltas = [];
     subset.forEach((l) => {
+      if (!entryEnHorario(l._createdTime)) return;
       const leadT = new Date(l._createdTime).getTime();
       const callT = primeras.get(String(l.lead_id).trim());
       if (!Number.isFinite(leadT) || callT === undefined) return;
