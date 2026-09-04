@@ -149,10 +149,11 @@ let _cache = null;
 let _cacheTime = 0;
 const CACHE_TTL = 60_000;
 
-export async function fetchAirtableData() {
-  if (_cache && Date.now() - _cacheTime < CACHE_TTL) return _cache;
+export async function fetchAirtableData(bustCache = false) {
+  if (!bustCache && _cache && Date.now() - _cacheTime < CACHE_TTL) return _cache;
 
-  const res = await fetch('/api/airtable');
+  const url = bustCache ? `/api/airtable?_t=${Date.now()}` : '/api/airtable';
+  const res = await fetch(url);
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`API error ${res.status}: ${body}`);
@@ -331,12 +332,24 @@ export function transformData(raw, clinicId, period) {
     if (prev === undefined || t < prev) firstCallByLead.set(lid, t);
   });
 
-  // Solo leads que entran dentro del horario de llamadas y cuya primera llamada
-  // llega en menos de 24 h. Fuera de horario, o leads re-trabajados días
-  // después, no representan la reacción a un lead nuevo.
+  // ---------------------------------------------------------------------------
+  // Previos / reactivados: leads anteriores a la activación de Enalia.
+  // Se definen aquí para reusar en Tiempo Respuesta y en Segmentos.
+  // ---------------------------------------------------------------------------
+  const previosSet = new Set((leadsPreviosIds || []).map((id) => String(id).trim()));
+  const usaLista = previosSet.size > 0;
+  const corteInicio = fechaInicioEnalia ? new Date(fechaInicioEnalia).getTime() : 0;
+  const esPrevio = (l) => (usaLista
+    ? previosSet.has(String(l.lead_id).trim())
+    : new Date(l._createdTime).getTime() < corteInicio);
+
+  // Solo leads NUEVOS que entran dentro del horario de llamadas y cuya primera
+  // llamada llega en menos de 24 h. Excluimos: fuera de horario, reactivados
+  // (previos de antes de Enalia), y leads re-trabajados días después.
   const MAX_RESPONSE_SEG = 24 * 60 * 60;
   const responseDeltas = [];
   periodLeads.forEach((l) => {
+    if (esPrevio(l)) return;
     if (!entryEnHorario(l._createdTime)) return;
     const leadT = new Date(l._createdTime).getTime();
     const callT = firstCallByLead.get(String(l.lead_id).trim());
@@ -436,18 +449,6 @@ export function transformData(raw, clinicId, period) {
   const campanas = Object.values(campMap)
     .map((c) => ({ ...c, conv: c.leads > 0 ? parseFloat(((c.citas / c.leads) * 100).toFixed(1)) : 0 }))
     .sort((a, b) => b.citas - a.citas);
-
-  // ---------------------------------------------------------------------------
-  // SEGMENTOS: leads anteriores a la activación del agente vs. leads nuevos.
-  // Los "anteriores" son una lista cerrada de lead_id: no crecen, pero sus
-  // llamadas, intentos y citas se siguen leyendo de Airtable en vivo.
-  // ---------------------------------------------------------------------------
-  const previosSet = new Set((leadsPreviosIds || []).map((id) => String(id).trim()));
-  const usaLista = previosSet.size > 0;
-  const corteInicio = fechaInicioEnalia ? new Date(fechaInicioEnalia).getTime() : 0;
-  const esPrevio = (l) => (usaLista
-    ? previosSet.has(String(l.lead_id).trim())
-    : new Date(l._createdTime).getTime() < corteInicio);
 
   // Calcula el juego completo de métricas para un subconjunto de leads.
   const computeSegmento = (subset) => {

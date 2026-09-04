@@ -175,7 +175,7 @@ export default function useAirtableData(clinicId, period) {
     }
     if (opts.fresh) invalidateCache();
     try {
-      const raw = await fetchAirtableData();
+      const raw = await fetchAirtableData(!!opts.fresh);
       const transformed = transformData(raw, clinicId, period);
       setData(transformed);
     } catch (err) {

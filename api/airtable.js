@@ -207,7 +207,7 @@ export default async function handler(req, res) {
       _fetchedAt: new Date().toISOString(),
     };
 
-    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
+    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
     return res.status(200).json(data);
   } catch (err) {
     console.error('Airtable fetch error:', err);
