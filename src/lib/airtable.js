@@ -316,18 +316,24 @@ export function transformData(raw, clinicId, period) {
     if (prev === undefined || t < prev) firstCallByLead.set(lid, t);
   });
 
+  // Mediana + tope de 24 h: los leads re-trabajados semanas después son ruido
+  // para esta métrica (mide reacción a un lead nuevo, no repesca de la BBDD).
+  const MAX_RESPONSE_SEG = 24 * 60 * 60;
   const responseDeltas = [];
   periodLeads.forEach((l) => {
     const leadT = new Date(l._createdTime).getTime();
     const callT = firstCallByLead.get(String(l.lead_id).trim());
     if (!Number.isFinite(leadT) || callT === undefined) return;
     const deltaSeg = (callT - leadT) / 1000;
-    // Descarta desfases negativos (llamada registrada antes que el lead).
-    if (deltaSeg >= 0) responseDeltas.push(deltaSeg);
+    if (deltaSeg >= 0 && deltaSeg <= MAX_RESPONSE_SEG) responseDeltas.push(deltaSeg);
   });
 
   const tiempoRespuestaSeg = responseDeltas.length > 0
-    ? Math.round(responseDeltas.reduce((a, b) => a + b, 0) / responseDeltas.length)
+    ? (() => {
+        const sorted = [...responseDeltas].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return Math.round(sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2);
+      })()
     : null;
 
   const prevRange = computePrevRange(period);
@@ -450,13 +456,14 @@ export function transformData(raw, clinicId, period) {
       const prevT = primeras.get(lid);
       if (prevT === undefined || t < prevT) primeras.set(lid, t);
     });
+    const MAX_RESP = 24 * 60 * 60;
     const deltas = [];
     subset.forEach((l) => {
       const leadT = new Date(l._createdTime).getTime();
       const callT = primeras.get(String(l.lead_id).trim());
       if (!Number.isFinite(leadT) || callT === undefined) return;
       const dSeg = (callT - leadT) / 1000;
-      if (dSeg >= 0) deltas.push(dSeg);
+      if (dSeg >= 0 && dSeg <= MAX_RESP) deltas.push(dSeg);
     });
 
     const pct = (a, b) => (b > 0 ? parseFloat(((a / b) * 100).toFixed(1)) : null);
@@ -477,7 +484,11 @@ export function transformData(raw, clinicId, period) {
       callMinutes: parseFloat((segSecs / 60).toFixed(1)),
       costeLlamadas: parseFloat(((segSecs / 60) * defaultConfig.costePorMinuto).toFixed(2)),
       tiempoRespuestaSeg: deltas.length > 0
-        ? Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length)
+        ? (() => {
+            const s = [...deltas].sort((a, b) => a - b);
+            const m = Math.floor(s.length / 2);
+            return Math.round(s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2);
+          })()
         : null,
       valoracionMedia: segRated.length > 0
         ? parseFloat((segRated.reduce((acc, c) => acc + Number(c.calificacion), 0) / segRated.length).toFixed(1))
