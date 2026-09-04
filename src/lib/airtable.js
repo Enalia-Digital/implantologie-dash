@@ -244,7 +244,7 @@ export function transformData(raw, clinicId, period) {
     const lid = a.lead_id ? String(a.lead_id).trim() : null;
     if (lid && demoLeadIds.has(lid)) return false;
     if (isDemoPhone(a.phone)) return false;
-    const dateField = a.appointment_start || a.created_at || a._createdTime;
+    const dateField = a.created_at || a._createdTime;
     if (!inRange(dateField, range)) return false;
     if (clinicId === 'general') return true;
     const apptClinic = normalizeClinic(a.clinic_id);
@@ -285,9 +285,8 @@ export function transformData(raw, clinicId, period) {
   const totalLlamadas = periodCalls.length;
   const llamadasAtendidas = periodCalls.filter(fueAtendida).length;
 
-  // Agendadas: unión por lead_id de la tabla appointments y del status del lead.
-  // n8n marca status='cita_agendada' en el lead aunque appointments llegue tarde.
-  // Basta con que exista un registro en appointments con lead_id para contar como agendada.
+  // Agendadas: conteo directo de la tabla appointments.
+  // El set de lead_ids se mantiene para marcar status de leads en otras partes.
   const agendadaLeadIds = new Set();
   periodAppts.forEach((a) => {
     if (a.lead_id) agendadaLeadIds.add(String(a.lead_id).trim());
@@ -298,7 +297,7 @@ export function transformData(raw, clinicId, period) {
       agendadaLeadIds.add(String(l.lead_id).trim());
     }
   });
-  const citasAgendadas = agendadaLeadIds.size;
+  const citasAgendadas = periodAppts.length;
 
   // Asistidas: showed_up / attendance_status en appointments, o ha_acudido en el lead.
   const asistidaLeadIds = new Set();
@@ -384,8 +383,13 @@ export function transformData(raw, clinicId, period) {
     const keyMap = { triana: 'triana', los_palacios: 'losPalacios', san_jose: 'sanJose' };
     clinicIds.forEach((cid) => {
       const clinicLeads = periodLeads.filter((l) => normalizeClinic(l.preferred_clinic_id) === cid);
-      // Misma definición de "cita" que el KPI: leads agendados de esa clínica.
-      const cCitas = clinicLeads.filter((l) => agendadaLeadIds.has(String(l.lead_id).trim())).length;
+      const cCitas = periodAppts.filter((a) => {
+        const ac = normalizeClinic(a.clinic_id);
+        if (ac) return ac === cid;
+        const lid = a.lead_id ? String(a.lead_id).trim() : null;
+        const lead = lid ? leadMap.get(lid) : null;
+        return lead ? normalizeClinic(lead.preferred_clinic_id) === cid : false;
+      }).length;
       porClinica[keyMap[cid]] = { leads: clinicLeads.length, citas: cCitas };
     });
   }
