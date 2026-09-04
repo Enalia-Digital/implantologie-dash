@@ -29,6 +29,7 @@ export const PERIODS = [
   { id: 'month', label: 'Este mes', short: 'Mes' },
   { id: 'last_month', label: 'Mes pasado', short: 'Mes pasado' },
   { id: 'last_90', label: 'Últimos 90 días', short: '90 días' },
+  { id: 'enalia', label: 'Histórico Enalia', short: 'Enalia' },
 ];
 
 export function ClinicProvider({ children }) {

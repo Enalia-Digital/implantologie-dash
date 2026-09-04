@@ -179,8 +179,10 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
             Periodo
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-            {PERIODS.map((p) => {
+            {PERIODS.map((p, i) => {
               const active = p.id === period;
+              const isLast = i === PERIODS.length - 1;
+              const isOddLast = isLast && PERIODS.length % 2 !== 0;
               return (
                 <button
                   key={p.id}
@@ -195,6 +197,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
                     cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'background 160ms ease, border-color 160ms ease, color 160ms ease',
                     textAlign: 'center', whiteSpace: 'nowrap',
+                    gridColumn: isOddLast ? '1 / -1' : undefined,
                   }}
                   onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--sb-hover)'; }}
                   onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'var(--sb-bg-elevated)'; }}

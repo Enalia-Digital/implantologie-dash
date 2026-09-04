@@ -42,6 +42,10 @@ function periodRange(period) {
       const start = startOfDay(new Date(now.getTime() - 90 * 86400000));
       return { start, end: now };
     }
+    case 'enalia': {
+      const start = fechaInicioEnalia ? startOfDay(new Date(fechaInicioEnalia)) : new Date(0);
+      return { start, end: now };
+    }
     default:
       return { start: new Date(0), end: now };
   }
@@ -106,9 +110,9 @@ const OBJECTION_MAP = [
 ];
 
 // Una llamada se considera ATENDIDA solo si el lead descolgó y hubo conversación real.
-// Umbral: 40 s. Por debajo suele ser buzón de voz o descuelgue+colgar sin hablar.
+// Umbral: 15 s. Por debajo suele ser ring sin respuesta o colgar inmediato.
 // duration_seconds = 0 significa que sonó pero nadie cogió el teléfono.
-const MIN_CONTACT_SECONDS = 40;
+const MIN_CONTACT_SECONDS = 15;
 function fueAtendida(call) {
   return Number(call.duration_seconds) >= MIN_CONTACT_SECONDS;
 }
@@ -283,13 +287,14 @@ export function transformData(raw, clinicId, period) {
 
   // Agendadas: unión por lead_id de la tabla appointments y del status del lead.
   // n8n marca status='cita_agendada' en el lead aunque appointments llegue tarde.
+  // Basta con que exista un registro en appointments con lead_id para contar como agendada.
   const agendadaLeadIds = new Set();
   periodAppts.forEach((a) => {
-    if (a.appointment_status && a.lead_id) agendadaLeadIds.add(String(a.lead_id).trim());
+    if (a.lead_id) agendadaLeadIds.add(String(a.lead_id).trim());
   });
   periodLeads.forEach((l) => {
     const st = l.status;
-    if (st && typeof st === 'string' && /agendad|cita/.test(st.toLowerCase())) {
+    if (st && typeof st === 'string' && /agendad|cita|appointment|scheduled/.test(st.toLowerCase())) {
       agendadaLeadIds.add(String(l.lead_id).trim());
     }
   });
@@ -668,6 +673,8 @@ function computePrevRange(period) {
       const start = new Date(end.getTime() - 90 * 86400000);
       return { start, end };
     }
+    case 'enalia':
+      return { start: new Date(0), end: new Date(0) };
     default:
       return { start: new Date(0), end: new Date(0) };
   }
