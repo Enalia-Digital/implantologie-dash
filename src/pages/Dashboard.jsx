@@ -4,6 +4,7 @@ import { clinicHeader } from '../data/mockData';
 import useAirtableData from '../hooks/useAirtableData';
 import AppLayout from '../components/layout/AppLayout';
 import KpiBlock from '../components/blocks/KpiBlock';
+import FirstCallBlock from '../components/blocks/FirstCallBlock';
 import FunnelBlock from '../components/blocks/FunnelBlock';
 import GoalsBlock from '../components/blocks/GoalsBlock';
 import EvolutionBlock from '../components/blocks/EvolutionBlock';
@@ -50,13 +51,14 @@ export default function Dashboard() {
   React.useEffect(() => {
     if (activeClinic === 'general') setChangelogResetKey((k) => k + 1);
   }, [activeClinic]);
-  const { data, loading, error, refresh } = useAirtableData(activeClinic, period);
+  const { data, loading, error, refresh } = useAirtableData(activeClinic, period, vista);
 
   const isGeneral = activeClinic === 'general';
   const byClinic = useMemo(() => (isGeneral ? buildByClinicForReport(data) : null), [isGeneral, data]);
 
   const blocks = [
     { id: 'b-kpis', el: <KpiBlock data={data} vista={vista} deps={[activeClinic]} /> },
+    { id: 'b-first-call', el: <FirstCallBlock data={data} /> },
     { id: 'b-funnel', el: <FunnelBlock data={data} /> },
     { id: 'b-goals', el: <GoalsBlock data={data} /> },
     { id: 'b-evolution', el: <EvolutionBlock data={data} /> },

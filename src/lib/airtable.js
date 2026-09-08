@@ -12,6 +12,8 @@ const CLINIC_MAP = {
   'los palacios': 'los_palacios',
 };
 
+function leadDate(l) { return l.created_at || l._createdTime; }
+
 function normalizeClinic(raw) {
   if (!raw) return null;
   const trimmed = String(raw).trim();
@@ -151,7 +153,7 @@ function maskPhone(phone) {
 
 let _cache = null;
 let _cacheTime = 0;
-const CACHE_TTL = 60_000;
+const CACHE_TTL = 30_000;
 
 export async function fetchAirtableData(bustCache = false) {
   if (!bustCache && _cache && Date.now() - _cacheTime < CACHE_TTL) return _cache;
@@ -172,7 +174,7 @@ export function invalidateCache() {
   _cacheTime = 0;
 }
 
-export function transformData(raw, clinicId, period) {
+export function transformData(raw, clinicId, period, vista = 'activacion') {
   const range = periodRange(period);
 
   // Airtable arrastra filas totalmente vacías: sin lead_id no hay dato utilizable.
@@ -191,7 +193,7 @@ export function transformData(raw, clinicId, period) {
 
   const appointments = dedupBy(
     (raw.appointments || []).filter((a) => a.lead_id || a.appointment_id),
-    (a) => a.appointment_id || a._recordId
+    (a) => a._recordId
   );
 
   const tasks = dedup(raw.call_tasks || [], 'task_id');
@@ -229,7 +231,7 @@ export function transformData(raw, clinicId, period) {
     : leads.filter((l) => normalizeClinic(l.preferred_clinic_id) === clinicId)
   ).filter((l) => !isDemoPhone(l.phone));
 
-  const periodLeads = filterLeads.filter((l) => inRange(l._createdTime, range));
+  let periodLeads = filterLeads.filter((l) => inRange(leadDate(l), range));
 
   const allPeriodCalls = calls.filter((c) => {
     const date = c.started_at || c._createdTime;
@@ -238,9 +240,9 @@ export function transformData(raw, clinicId, period) {
     return callLeadClinic(c) === clinicId;
   });
 
-  const periodCalls = allPeriodCalls.filter((c) => !isDemoRecord(c));
+  let periodCalls = allPeriodCalls.filter((c) => !isDemoRecord(c));
 
-  const periodAppts = appointments.filter((a) => {
+  let periodAppts = appointments.filter((a) => {
     const lid = a.lead_id ? String(a.lead_id).trim() : null;
     if (lid && demoLeadIds.has(lid)) return false;
     if (isDemoPhone(a.phone)) return false;
@@ -264,6 +266,44 @@ export function transformData(raw, clinicId, period) {
     const lead = lid ? leadMap.get(lid) : null;
     return lead ? normalizeClinic(lead.preferred_clinic_id) === clinicId : false;
   });
+
+  // --- Vista: separar previos de activación antes de computar métricas ---
+  const _previosSet = new Set((leadsPreviosIds || []).map((id) => String(id).trim()));
+  const _usaLista = _previosSet.size > 0;
+  const _corteInicio = fechaInicioEnalia ? new Date(fechaInicioEnalia).getTime() : 0;
+  const esPrevio = (l) => (_usaLista
+    ? _previosSet.has(String(l.lead_id).trim())
+    : new Date(leadDate(l)).getTime() < _corteInicio);
+
+  const leadsPrevios = periodLeads.filter(esPrevio);
+  const leadsActivacion = periodLeads.filter((l) => !esPrevio(l));
+  const hayPrevios = leadsPrevios.length > 0;
+
+  if (hayPrevios) {
+    const prevIds = new Set(leadsPrevios.map((l) => String(l.lead_id).trim()));
+    if (vista === 'previos') {
+      periodLeads = leadsPrevios;
+      periodCalls = periodCalls.filter((c) => {
+        const lid = c.lead_id ? String(c.lead_id).trim() : null;
+        return lid && prevIds.has(lid);
+      });
+      periodAppts = periodAppts.filter((a) => {
+        const lid = a.lead_id ? String(a.lead_id).trim() : null;
+        return lid && prevIds.has(lid);
+      });
+    } else {
+      periodLeads = leadsActivacion;
+      periodCalls = periodCalls.filter((c) => {
+        const lid = c.lead_id ? String(c.lead_id).trim() : null;
+        if (!lid) return true;
+        return !prevIds.has(lid);
+      });
+      periodAppts = periodAppts.filter((a) => {
+        const lid = a.lead_id ? String(a.lead_id).trim() : null;
+        return !lid || !prevIds.has(lid);
+      });
+    }
+  }
 
   // Distinguimos intento de llamada (marcamos) de contacto real (descuelgan).
   const dialedLeadIds = new Set();
@@ -317,6 +357,53 @@ export function transformData(raw, clinicId, period) {
   });
   const citasAsistidas = asistidaLeadIds.size;
 
+  // Distribución "agendado en la N-ésima llamada".
+  // Universo: primera cita del periodo por lead.
+  // Para cada lead con cita, contamos las llamadas del sistema (todas, no demo,
+  // contestadores y 0:00 incluidos) cuyo started_at es <= created_at de la cita
+  // (con 1h de margen por desfases de reloj). Buckets: 1, 2, 3, 4, 5, "+5".
+  const agendamientoPorIntentoBuckets = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, '6+': 0 };
+  const callsPorLead = new Map();
+  calls.forEach((c) => {
+    if (!c.lead_id) return;
+    if (isDemoRecord(c)) return;
+    const lid = String(c.lead_id).trim();
+    const t = new Date(c.started_at || c._createdTime).getTime();
+    if (!Number.isFinite(t)) return;
+    if (!callsPorLead.has(lid)) callsPorLead.set(lid, []);
+    callsPorLead.get(lid).push(t);
+  });
+  callsPorLead.forEach((arr) => arr.sort((a, b) => a - b));
+
+  const primeraCitaPorLead = new Map();
+  periodAppts.forEach((a) => {
+    const lid = a.lead_id ? String(a.lead_id).trim() : null;
+    if (!lid) return;
+    const t = new Date(a.created_at || a._createdTime).getTime();
+    if (!Number.isFinite(t)) return;
+    const prev = primeraCitaPorLead.get(lid);
+    if (prev === undefined || t < prev) primeraCitaPorLead.set(lid, t);
+  });
+
+  const HOUR_MS = 60 * 60 * 1000;
+  let agendadosSinLlamada = 0;
+  primeraCitaPorLead.forEach((tCita, lid) => {
+    const llamadasDelLead = callsPorLead.get(lid) || [];
+    const n = llamadasDelLead.filter((t) => t <= tCita + HOUR_MS).length;
+    if (n === 0) {
+      agendadosSinLlamada += 1;
+      agendamientoPorIntentoBuckets[1] += 1;
+      return;
+    }
+    const key = n >= 6 ? '6+' : String(n);
+    agendamientoPorIntentoBuckets[key] += 1;
+  });
+  const agendamientoPorIntento = {
+    buckets: agendamientoPorIntentoBuckets,
+    total: primeraCitaPorLead.size,
+    sinLlamada: agendadosSinLlamada,
+  };
+
   const costSeconds = allPeriodCalls.reduce((s, c) => s + (Number(c.duration_seconds) || 0), 0);
   const callMinutes = parseFloat((costSeconds / 60).toFixed(1));
   const costeLlamadas = parseFloat(((costSeconds / 60) * defaultConfig.costePorMinuto).toFixed(2));
@@ -336,31 +423,18 @@ export function transformData(raw, clinicId, period) {
     if (prev === undefined || t < prev) firstCallByLead.set(lid, t);
   });
 
-  // ---------------------------------------------------------------------------
-  // Previos / reactivados: leads anteriores a la activación de Enalia.
-  // Se definen aquí para reusar en Tiempo Respuesta y en Segmentos.
-  // ---------------------------------------------------------------------------
-  const previosSet = new Set((leadsPreviosIds || []).map((id) => String(id).trim()));
-  const usaLista = previosSet.size > 0;
-  const corteInicio = fechaInicioEnalia ? new Date(fechaInicioEnalia).getTime() : 0;
-  const esPrevio = (l) => (usaLista
-    ? previosSet.has(String(l.lead_id).trim())
-    : new Date(l._createdTime).getTime() < corteInicio);
-
-  // Solo leads NUEVOS que entran dentro del horario de llamadas y cuya primera
-  // llamada llega en menos de 24 h. Excluimos: fuera de horario, reactivados
-  // (previos de antes de Enalia), y leads re-trabajados días después.
   const MAX_RESPONSE_SEG = 24 * 60 * 60;
   const responseDeltas = [];
-  periodLeads.forEach((l) => {
-    if (esPrevio(l)) return;
-    if (!entryEnHorario(l._createdTime)) return;
-    const leadT = new Date(l._createdTime).getTime();
-    const callT = firstCallByLead.get(String(l.lead_id).trim());
-    if (!Number.isFinite(leadT) || callT === undefined) return;
-    const deltaSeg = (callT - leadT) / 1000;
-    if (deltaSeg >= 0 && deltaSeg <= MAX_RESPONSE_SEG) responseDeltas.push(deltaSeg);
-  });
+  if (vista !== 'previos') {
+    periodLeads.forEach((l) => {
+      if (!entryEnHorario(leadDate(l))) return;
+      const leadT = new Date(leadDate(l)).getTime();
+      const callT = firstCallByLead.get(String(l.lead_id).trim());
+      if (!Number.isFinite(leadT) || callT === undefined) return;
+      const deltaSeg = (callT - leadT) / 1000;
+      if (deltaSeg >= 0 && deltaSeg <= MAX_RESPONSE_SEG) responseDeltas.push(deltaSeg);
+    });
+  }
 
   const tiempoRespuestaSeg = responseDeltas.length > 0
     ? (() => {
@@ -371,7 +445,7 @@ export function transformData(raw, clinicId, period) {
     : null;
 
   const prevRange = computePrevRange(period);
-  const prevLeads = filterLeads.filter((l) => inRange(l._createdTime, prevRange));
+  const prevLeads = filterLeads.filter((l) => inRange(leadDate(l), prevRange));
   const leadsDelta = prevLeads.length > 0 && totalLeads > 0
     ? Math.round(((totalLeads - prevLeads.length) / prevLeads.length) * 100)
     : null;
@@ -422,7 +496,7 @@ export function transformData(raw, clinicId, period) {
   });
   periodLeads.forEach((l) => {
     addObjecion(l.main_objection, l.full_name || '—',
-      new Date(l._createdTime).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+      new Date(leadDate(l)).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
       { resumen: null, recordingUrl: null, duracion: 0, atendida: null, outcome: null });
   });
 
@@ -447,7 +521,7 @@ export function transformData(raw, clinicId, period) {
     if (agendado) campMap[key].citas++;
     campMap[key].detalles.push({
       nombre: l.full_name || '—',
-      fecha: new Date(l._createdTime).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+      fecha: new Date(leadDate(l)).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
       clinica: l.preferred_clinic_id || '—',
       llamado,
       contactado,
@@ -459,81 +533,10 @@ export function transformData(raw, clinicId, period) {
     .map((c) => ({ ...c, conv: c.leads > 0 ? parseFloat(((c.citas / c.leads) * 100).toFixed(1)) : 0 }))
     .sort((a, b) => b.citas - a.citas);
 
-  // Calcula el juego completo de métricas para un subconjunto de leads.
-  const computeSegmento = (subset) => {
-    const ids = new Set(subset.map((l) => String(l.lead_id).trim()));
-    const segCalls = periodCalls.filter((c) => ids.has(String(c.lead_id).trim()));
-    const segAtendidas = segCalls.filter(fueAtendida);
-
-    const nLeads = subset.length;
-    const nLlamados = subset.filter((l) => dialedLeadIds.has(String(l.lead_id).trim())).length;
-    const nContactados = subset.filter((l) => contactedLeadIds.has(String(l.lead_id).trim())).length;
-    const nAgendados = subset.filter((l) => agendadaLeadIds.has(String(l.lead_id).trim())).length;
-    const nAsistidos = subset.filter((l) => asistidaLeadIds.has(String(l.lead_id).trim())).length;
-
-    const segSecs = segCalls.reduce((acc, c) => acc + (Number(c.duration_seconds) || 0), 0);
-    const segRated = segCalls.filter((c) => c.calificacion && Number(c.calificacion) > 0);
-
-    // Tiempo de respuesta del segmento
-    const primeras = new Map();
-    segCalls.forEach((c) => {
-      const t = new Date(c.started_at || c._createdTime).getTime();
-      if (!Number.isFinite(t)) return;
-      const lid = String(c.lead_id).trim();
-      const prevT = primeras.get(lid);
-      if (prevT === undefined || t < prevT) primeras.set(lid, t);
-    });
-    const MAX_RESP = 24 * 60 * 60;
-    const deltas = [];
-    subset.forEach((l) => {
-      if (!entryEnHorario(l._createdTime)) return;
-      const leadT = new Date(l._createdTime).getTime();
-      const callT = primeras.get(String(l.lead_id).trim());
-      if (!Number.isFinite(leadT) || callT === undefined) return;
-      const dSeg = (callT - leadT) / 1000;
-      if (dSeg >= 0 && dSeg <= MAX_RESP) deltas.push(dSeg);
-    });
-
-    const pct = (a, b) => (b > 0 ? parseFloat(((a / b) * 100).toFixed(1)) : null);
-
-    return {
-      totalLeads: nLeads,
-      leadsLlamados: nLlamados,
-      leadsContactados: nContactados,
-      citasAgendadas: nAgendados,
-      citasAsistidas: nAsistidos,
-      totalLlamadas: segCalls.length,
-      llamadasAtendidas: segAtendidas.length,
-      intentosPorLead: nLeads > 0 ? parseFloat((segCalls.length / nLeads).toFixed(1)) : null,
-      tasaContacto: pct(nContactados, nLeads),
-      tasaAgendamiento: pct(nAgendados, nLeads),
-      tasaReunion: pct(nAgendados, nContactados),
-      tasaAsistencia: pct(nAsistidos, nAgendados),
-      callMinutes: parseFloat((segSecs / 60).toFixed(1)),
-      costeLlamadas: parseFloat(((segSecs / 60) * defaultConfig.costePorMinuto).toFixed(2)),
-      tiempoRespuestaSeg: deltas.length > 0
-        ? (() => {
-            const s = [...deltas].sort((a, b) => a - b);
-            const m = Math.floor(s.length / 2);
-            return Math.round(s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2);
-          })()
-        : null,
-      valoracionMedia: segRated.length > 0
-        ? parseFloat((segRated.reduce((acc, c) => acc + Number(c.calificacion), 0) / segRated.length).toFixed(1))
-        : null,
-    };
-  };
-
-  const leadsPrevios = periodLeads.filter(esPrevio);
-  const leadsActivacion = periodLeads.filter((l) => !esPrevio(l));
-  const segmentos = {
-    hayPrevios: leadsPrevios.length > 0,
-    previos: computeSegmento(leadsPrevios),
-    activacion: computeSegmento(leadsActivacion),
-  };
+  const segmentos = { hayPrevios };
 
   const recentLeads = [...periodLeads]
-    .sort((a, b) => new Date(b._createdTime) - new Date(a._createdTime))
+    .sort((a, b) => new Date(leadDate(b)) - new Date(leadDate(a)))
     .slice(0, 10);
   const leadsRecientes = recentLeads.map((l) => {
     const lid = String(l.lead_id).trim();
@@ -648,6 +651,7 @@ export function transformData(raw, clinicId, period) {
     topCalls,
     valoracionMedia,
     historico,
+    agendamientoPorIntento,
   };
 }
 
@@ -710,7 +714,7 @@ function buildEvolution(periodLeads, periodCalls, periodAppts, range, leadMap, a
   });
 
   periodLeads.forEach((l) => {
-    const d = new Date(l._createdTime);
+    const d = new Date(leadDate(l));
     const idx = Math.min(Math.floor((d - range.start) / (bucketSize * 86400000)), bucketCount - 1);
     if (idx >= 0) {
       const lid = String(l.lead_id).trim();
@@ -745,7 +749,7 @@ function buildHistorico(allLeads, allCalls, allAppts, clinicId, leadMap, demoLea
   return months.map((m) => {
     const mLeads = allLeads.filter((l) => {
       if (isDemoPhone(l.phone)) return false;
-      if (!inRange(l._createdTime, m)) return false;
+      if (!inRange(leadDate(l), m)) return false;
       if (clinicId === 'general') return true;
       return normalizeClinic(l.preferred_clinic_id) === clinicId;
     });
@@ -766,7 +770,7 @@ function buildHistorico(allLeads, allCalls, allAppts, clinicId, leadMap, demoLea
       const lid = a.lead_id ? String(a.lead_id).trim() : null;
       if (lid && demoLeadIds.has(lid)) return false;
       if (isDemoPhone(a.phone)) return false;
-      const dateField = a.appointment_start || a.created_at;
+      const dateField = a.created_at || a._createdTime;
       if (!inRange(dateField, m)) return false;
       if (clinicId === 'general') return true;
       const ac = normalizeClinic(a.clinic_id);
