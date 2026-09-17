@@ -6,6 +6,8 @@ import SplashScreen from './components/SplashScreen';
 import Dashboard from './pages/Dashboard';
 import CalendarView from './pages/CalendarView';
 import Calculator from './pages/Calculator';
+import Reports from './pages/Reports';
+import Alertas from './pages/Alertas';
 
 export default function App() {
   const [splashDone, setSplashDone] = useState(false);
@@ -20,6 +22,8 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/calendario" element={<CalendarView />} />
           <Route path="/calculadora" element={<Calculator />} />
+          <Route path="/reportes" element={<Reports />} />
+          <Route path="/alertas" element={<Alertas />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </ClinicProvider>

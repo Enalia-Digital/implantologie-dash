@@ -5,6 +5,8 @@ import useAirtableData from '../hooks/useAirtableData';
 import AppLayout from '../components/layout/AppLayout';
 import KpiBlock from '../components/blocks/KpiBlock';
 import FirstCallBlock from '../components/blocks/FirstCallBlock';
+import RetriesBlock from '../components/blocks/RetriesBlock';
+import AttendanceBlock from '../components/blocks/AttendanceBlock';
 import FunnelBlock from '../components/blocks/FunnelBlock';
 import GoalsBlock from '../components/blocks/GoalsBlock';
 import EvolutionBlock from '../components/blocks/EvolutionBlock';
@@ -16,6 +18,7 @@ import TopCallsBlock from '../components/blocks/TopCallsBlock';
 import SegmentTabs from '../components/ui/SegmentTabs';
 import ChangelogWidget from '../components/ui/ChangelogWidget';
 import ReportsPanel from '../components/ui/ReportsPanel';
+import AlertBanner from '../components/ui/AlertBanner';
 
 function Separator() {
   return <div style={{ height: 1, background: 'var(--border-hairline)', margin: '24px 0' }} />;
@@ -58,10 +61,12 @@ export default function Dashboard() {
 
   const blocks = [
     { id: 'b-kpis', el: <KpiBlock data={data} vista={vista} deps={[activeClinic]} /> },
-    { id: 'b-first-call', el: <FirstCallBlock data={data} /> },
     { id: 'b-funnel', el: <FunnelBlock data={data} /> },
-    { id: 'b-goals', el: <GoalsBlock data={data} /> },
+    { id: 'b-attendance', el: <AttendanceBlock data={data} /> },
     { id: 'b-evolution', el: <EvolutionBlock data={data} /> },
+    { id: 'b-first-call', el: <FirstCallBlock data={data} /> },
+    { id: 'b-retries', el: <RetriesBlock data={data} /> },
+    { id: 'b-goals', el: <GoalsBlock data={data} /> },
     isGeneral && { id: 'b-clinics', el: <ClinicDistributionBlock data={data} /> },
     { id: 'b-objections', el: <ObjectionsBlock data={data} /> },
     { id: 'b-campaigns', el: <CampaignsBlock data={data} /> },
@@ -109,11 +114,14 @@ export default function Dashboard() {
     <AppLayout headerRight={headerRight}>
       {loading && !data && <LoadingState />}
       {error && !data && <ErrorState message={error} onRetry={refresh} />}
+      {data && (
+        <AlertBanner count={data.citasPendientesConfirmar?.length || 0} />
+      )}
       {data && data.segmentos && data.segmentos.hayPrevios && (
         <SegmentTabs vista={vista} onChange={setVista} />
       )}
       {data && (
-        <div key={activeClinic} style={{ padding: '18px 32px 64px', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+        <div key={activeClinic} className="app-page" style={{ padding: 'clamp(14px, 3vw, 18px) clamp(14px, 3vw, 32px) 64px', opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s' }}>
           {blocks.map((b, i) => (
             <div key={b.id}>
               <div id={b.id} className="fade-in-up" style={{ animationDelay: `${i * 25}ms` }}>

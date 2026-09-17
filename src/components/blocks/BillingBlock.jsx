@@ -32,8 +32,7 @@ export default function BillingBlock({ data, config }) {
     <section>
       <SectionLabel>Facturación</SectionLabel>
       <Card style={{ border: '1px solid rgba(191,0,255,0.20)' }}>
-        <div
-          style={{
+        <div className="billing-grid" style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
             gap: 20, marginBottom: 20,

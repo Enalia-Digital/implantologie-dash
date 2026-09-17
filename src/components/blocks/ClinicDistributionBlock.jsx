@@ -29,7 +29,7 @@ export default function ClinicDistributionBlock({ data }) {
     <section>
       <SectionLabel>Distribución por Clínica</SectionLabel>
       <Card>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24, alignItems: 'center' }}>
+        <div className="clinic-dist-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24, alignItems: 'center' }}>
           {/* Tabla */}
           <div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>

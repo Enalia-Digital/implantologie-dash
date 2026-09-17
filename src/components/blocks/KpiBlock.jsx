@@ -1,6 +1,15 @@
 import { Card, SectionLabel, CountUpValue } from '../ui/primitives';
-import { isNum, fmtDuracion } from '../../lib/calc';
+import { isNum, fmt, fmtDuracion } from '../../lib/calc';
 import { nombreAgente } from '../../data/config';
+import { useClinic, PERIODS } from '../../context/ClinicContext';
+
+const PERIODO_LABEL = {
+  week: 'esta semana',
+  month: 'este mes',
+  last_month: 'el mes pasado',
+  last_90: 'en 90 días',
+  enalia: 'desde el inicio',
+};
 
 function rateColor(v) {
   if (!isNum(v)) return 'var(--text-secondary)';
@@ -18,33 +27,55 @@ function respColor(v) {
 
 function KpiCard({ label, children, sub, accent }) {
   return (
-    <Card accent={accent} style={{ padding: '18px 20px' }}>
-      <div style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+    <Card accent={accent} style={{ padding: '20px 22px' }}>
+      <div style={{
+        fontSize: 10, fontWeight: 500, letterSpacing: '0.10em',
+        textTransform: 'uppercase', color: 'var(--text-muted)',
+      }}>
         {label}
       </div>
-      <div style={{ fontSize: 26, fontWeight: 700, marginTop: 8, lineHeight: 1.1 }}>{children}</div>
-      {sub && <div style={{ fontSize: 11, marginTop: 6 }}>{sub}</div>}
+      <div style={{
+        fontSize: 28, fontWeight: 600, marginTop: 10, lineHeight: 1.05,
+        letterSpacing: '-0.015em',
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        {children}
+      </div>
+      {sub && <div style={{ fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>{sub}</div>}
     </Card>
   );
 }
 
 export default function KpiBlock({ data, deps, vista = 'activacion' }) {
+  const { period } = useClinic();
+  const periodoTxt = PERIODO_LABEL[period] || '';
   const seg = data.segmentos;
 
-  // Si no hay segmentación configurada, se muestran las métricas globales.
-  const m = seg
-    ? (vista === 'previos' ? seg.previos : seg.activacion)
-    : {
-        totalLeads: data.totalLeads,
-        leadsContactados: data.leadsContactados,
-        citasAgendadas: data.citasAgendadas,
-        citasAsistidas: data.citasAsistidas,
-        totalLlamadas: data.totalLlamadas,
-        intentosPorLead: data.totalLeads > 0 ? data.totalLlamadas / data.totalLeads : null,
-        tasaReunion: data.leadsContactados > 0 ? (data.citasAgendadas / data.leadsContactados) * 100 : null,
-        tiempoRespuestaSeg: data.tiempoRespuestaSeg,
-        valoracionMedia: data.valoracionMedia,
-      };
+  // Universo consistente: la tasa "Agendamiento / Contactados" y
+  // "Agendamiento / Leads" deben usar citas NUEVAS (leads del periodo) para
+  // que numerador y denominador sean el mismo universo — asi nunca sale >100%.
+  // Las citas de rescate se muestran aparte.
+  const citasNuevas = data.citasNuevas != null ? data.citasNuevas : data.citasAgendadas;
+  const citasRescate = data.citasRescate || 0;
+  const m = {
+    totalLeads: data.totalLeads,
+    leadsContactados: data.leadsContactados,
+    citasAgendadas: data.citasAgendadas,
+    citasNuevas,
+    citasRescate,
+    citasAsistidas: data.citasAsistidas,
+    citasNoShow: data.citasNoShow,
+    tasaNoShow: data.tasaNoShow,
+    totalLlamadas: data.totalLlamadas,
+    llamadasNuevas: data.llamadasNuevas != null ? data.llamadasNuevas : data.totalLlamadas,
+    intentosPorLead: data.intentosPorLeadNuevo != null
+      ? data.intentosPorLeadNuevo
+      : (data.totalLeads > 0 ? data.totalLlamadas / data.totalLeads : null),
+    tasaAgendamiento: data.totalLeads > 0 ? (citasNuevas / data.totalLeads) * 100 : null,
+    tasaReunion: data.leadsContactados > 0 ? (citasNuevas / data.leadsContactados) * 100 : null,
+    tiempoRespuestaSeg: data.tiempoRespuestaSeg,
+    valoracionMedia: data.valoracionMedia,
+  };
 
   const esPrevios = vista === 'previos';
   const tabDeps = [...(deps || []), vista];
@@ -67,7 +98,21 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
         <KpiCard label="Leads Contactados" sub={<span style={{ color: 'var(--text-muted)' }}>cogieron el teléfono</span>}>
           <CountUpValue value={m.leadsContactados} deps={tabDeps} />
         </KpiCard>
-        <KpiCard label="Citas Agendadas" accent>
+        <KpiCard
+          label="Citas Agendadas"
+          accent
+          sub={
+            m.citasRescate > 0
+              ? (
+                <span style={{ color: 'var(--text-muted)' }}>
+                  <b style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{m.citasNuevas}</b> nuevas
+                  {' · '}
+                  <b style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{m.citasRescate}</b> de rescate
+                </span>
+              )
+              : null
+          }
+        >
           <CountUpValue value={m.citasAgendadas} color="var(--accent)" deps={tabDeps} />
         </KpiCard>
       </div>
@@ -77,23 +122,41 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
           label="Citas Asistidas"
           sub={!m.citasAsistidas ? <span style={{ color: 'var(--text-muted)' }}>Se actualiza cada día</span> : null}
         >
-          <CountUpValue value={m.citasAsistidas} deps={tabDeps} />
+          <CountUpValue value={m.citasAsistidas} color="var(--green)" deps={tabDeps} />
         </KpiCard>
-        <KpiCard label="Total Llamadas">
-          <CountUpValue value={m.totalLlamadas} deps={tabDeps} />
+        <KpiCard
+          label="Ausencias"
+          sub={
+            isNum(m.tasaNoShow)
+              ? <span style={{ color: 'var(--text-muted)' }}>{fmt(m.tasaNoShow, 1)}% de las confirmadas</span>
+              : <span style={{ color: 'var(--text-muted)' }}>Sin datos aún</span>
+          }
+        >
+          <CountUpValue value={m.citasNoShow} color={m.citasNoShow > 0 ? 'var(--red)' : 'var(--text-muted)'} deps={tabDeps} />
         </KpiCard>
-        <KpiCard label="Intentos / Lead">
+        <KpiCard
+          label="Llamadas a leads entrantes"
+          sub={<span style={{ color: 'var(--text-muted)' }}>{periodoTxt}</span>}
+        >
+          <CountUpValue value={m.llamadasNuevas} deps={tabDeps} />
+        </KpiCard>
+        <KpiCard
+          label="Intentos / Lead"
+          sub={<span style={{ color: 'var(--text-muted)' }}>llamadas por lead nuevo</span>}
+        >
           <CountUpValue value={m.intentosPorLead} decimals={1} deps={tabDeps} />
         </KpiCard>
-        <KpiCard label="Agendamiento / Leads" sub={<span style={{ color: 'var(--text-muted)' }}>citas sobre todos los leads</span>}>
+        <KpiCard label="Agendamiento / Leads" sub={<span style={{ color: 'var(--text-muted)' }}>citas nuevas sobre leads del periodo</span>}>
           <CountUpValue value={m.tasaAgendamiento} decimals={1} suffix="%" color={rateColor(m.tasaAgendamiento)} deps={tabDeps} />
         </KpiCard>
-        <KpiCard label="Agendamiento / Contactados" sub={<span style={{ color: 'var(--text-muted)' }}>de los que cogen el teléfono</span>}>
+        <KpiCard label="Agendamiento / Contactados" sub={<span style={{ color: 'var(--text-muted)' }}>de leads nuevos que cogen el teléfono</span>}>
           <CountUpValue value={m.tasaReunion} decimals={1} suffix="%" color={rateColor(m.tasaReunion)} deps={tabDeps} />
         </KpiCard>
-        <KpiCard label="Tiempo Respuesta" sub={<span style={{ color: 'var(--text-muted)' }}>desde lead → 1ª llamada</span>}>
-          <CountUpValue value={m.tiempoRespuestaSeg} format={fmtDuracion} color={respColor(m.tiempoRespuestaSeg)} deps={tabDeps} />
-        </KpiCard>
+        {!esPrevios && (
+          <KpiCard label="Tiempo Respuesta" sub={<span style={{ color: 'var(--text-muted)' }}>desde lead → 1ª llamada</span>}>
+            <CountUpValue value={m.tiempoRespuestaSeg} format={fmtDuracion} color={respColor(m.tiempoRespuestaSeg)} deps={tabDeps} />
+          </KpiCard>
+        )}
         <KpiCard label="Valoración Media">
           {isNum(m.valoracionMedia) ? (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>

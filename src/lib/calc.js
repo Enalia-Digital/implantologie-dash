@@ -49,9 +49,13 @@ export function safeDiv(a, b) {
   return a / b;
 }
 
-// Tasa de agendamiento Enalia = citasAgendadas / totalLeads * 100
+// Tasa de agendamiento Enalia = citasNuevas / totalLeads * 100
+// Se usa citasNuevas (no todas las citas del periodo) para que el ratio nunca
+// pueda pasar de 100% cuando hay muchas citas de rescate. Consistente con
+// KpiBlock y con "Agendamiento / Contactados".
 export function tasaAgendamiento(d) {
-  const r = safeDiv(d.citasAgendadas, d.totalLeads);
+  const numerador = d.citasNuevas != null ? d.citasNuevas : d.citasAgendadas;
+  const r = safeDiv(numerador, d.totalLeads);
   return r === null ? null : r * 100;
 }
 
@@ -61,10 +65,12 @@ export function tasaAsistencia(d) {
   return r === null ? null : r * 100;
 }
 
-// Agendamiento sobre CONTACTADOS = citasAgendadas / leadsContactados * 100.
-// Mide la eficacia de la conversación, sin penalizar a quien no descuelga.
+// Agendamiento sobre CONTACTADOS = citasNuevas / leadsContactados * 100.
+// Mide la eficacia de la conversación con leads del periodo, sin inflarse con
+// rescates (numerador y denominador del mismo universo).
 export function tasaAgendamientoSobreContacto(d) {
-  const r = safeDiv(d.citasAgendadas, d.leadsContactados);
+  const numerador = d.citasNuevas != null ? d.citasNuevas : d.citasAgendadas;
+  const r = safeDiv(numerador, d.leadsContactados);
   return r === null ? null : r * 100;
 }
 

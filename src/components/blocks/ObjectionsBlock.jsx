@@ -62,8 +62,13 @@ export default function ObjectionsBlock({ data }) {
     <section>
       <SectionLabel>Objeciones Detectadas</SectionLabel>
       <Card>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16 }}>
-          Pulsa una objeción para ver quién la dijo y escuchar la llamada.
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            Pulsa una objeción para ver quién la dijo y escuchar la llamada.
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+            <b style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{items.length}</b> {items.length === 1 ? 'objeción distinta' : 'objeciones distintas'}
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -73,6 +78,7 @@ export default function ObjectionsBlock({ data }) {
             return (
               <div key={o.label}>
                 <button
+                  className="obj-row-btn"
                   onClick={() => setOpenKey(open ? null : o.label)}
                   style={{
                     width: '100%', border: 'none', background: 'transparent',

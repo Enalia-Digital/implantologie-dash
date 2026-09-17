@@ -158,7 +158,7 @@ function buildMockData() {
   };
 }
 
-export default function useAirtableData(clinicId, period) {
+export default function useAirtableData(clinicId, period, vista = 'activacion') {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -176,7 +176,7 @@ export default function useAirtableData(clinicId, period) {
     if (opts.fresh) invalidateCache();
     try {
       const raw = await fetchAirtableData(!!opts.fresh);
-      const transformed = transformData(raw, clinicId, period);
+      const transformed = transformData(raw, clinicId, period, vista);
       setData(transformed);
     } catch (err) {
       console.error('Airtable fetch failed:', err);
@@ -184,7 +184,7 @@ export default function useAirtableData(clinicId, period) {
     } finally {
       setLoading(false);
     }
-  }, [clinicId, period]);
+  }, [clinicId, period, vista]);
 
   useEffect(() => {
     load({ fresh: true });
@@ -195,11 +195,14 @@ export default function useAirtableData(clinicId, period) {
     const onVisible = () => {
       if (document.visibilityState === 'visible') load({ fresh: true });
     };
+    const onExternalRefresh = () => load({ fresh: true });
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('airtable:refresh', onExternalRefresh);
     return () => {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('airtable:refresh', onExternalRefresh);
     };
   }, [load]);
 

@@ -414,3 +414,423 @@ input[type=range]::-moz-range-track {
   .fade-in-up { opacity: 1; }
   .bar-grow { transform: none; }
 }
+
+/* --- App card hover (Apple-style) ------------------------------------- */
+@media (hover: hover) and (pointer: fine) {
+  .app-card:hover {
+    border-color: var(--border-subtle);
+    box-shadow: 0 4px 16px rgba(15, 15, 25, 0.06);
+    transform: translateY(-1px);
+  }
+  .app-card-accent:hover {
+    border-left-color: var(--accent);
+  }
+}
+
+/* --- Active feedback global para botones interactivos ---------------- */
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):active,
+  a[role="button"]:not([aria-disabled="true"]):active {
+    transform: scale(0.97);
+    transition: transform 100ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+}
+
+/* --- Sidebar scrollbar sutil ------------------------------------------ */
+.sidebar-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-panel::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+  transition: background 200ms ease;
+}
+.sidebar-panel:hover::-webkit-scrollbar-thumb {
+  background: var(--sb-border);
+}
+
+/* ============================================================
+   FASE 1 · Fundación mobile-first (safe area, momentum, no zoom)
+   ============================================================ */
+
+html {
+  /* Evita que iOS agrande texto al girar el device */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  /* Evita el pull-to-refresh nativo del navegador dentro de la app */
+  overscroll-behavior-y: contain;
+  /* No horizontal scroll ever */
+  overflow-x: hidden;
+  /* Momentum en iOS */
+  -webkit-overflow-scrolling: touch;
+  /* Anti-flash zoom en dobletap */
+  touch-action: manipulation;
+}
+
+/* Los inputs deben ser >= 16px para que iOS no haga zoom al enfocarlos */
+input, select, textarea, button {
+  font-size: 16px;
+}
+
+/* Selector visual mas suave */
+::selection { background: var(--accent-dim); color: var(--text-primary); }
+
+/* Safe area helper vars */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+/* ============================================================
+   FASE 2 · Header + Sidebar drawer
+   ============================================================ */
+
+/* Mobile breakpoint: <= 767px */
+@media (max-width: 767px) {
+  /* Hamburger visible */
+  .menu-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Header compacto + safe area */
+  header {
+    padding-top: max(env(safe-area-inset-top), 8px) !important;
+    padding-left: max(env(safe-area-inset-left), 14px) !important;
+    padding-right: max(env(safe-area-inset-right), 14px) !important;
+  }
+
+  /* Main content: reservar hueco para notch + gesture bar */
+  .main-content {
+    margin-left: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
+
+  /* Sidebar como drawer: fuera del layout de flujo */
+  .sidebar-panel {
+    position: fixed !important;
+    top: 0; left: 0;
+    height: 100dvh !important;
+    z-index: 60;
+    width: min(280px, 82vw) !important;
+    transform: translateX(-100%);
+    transition: transform 260ms cubic-bezier(0.32, 0.72, 0, 1) !important;
+    box-shadow: 0 0 60px rgba(0,0,0,0.35);
+    padding-top: env(safe-area-inset-top) !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
+  .sidebar-panel.mobile-open {
+    transform: translateX(0);
+  }
+
+  /* Backdrop */
+  .sidebar-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.44);
+    z-index: 59;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms cubic-bezier(0.32, 0.72, 0, 1);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .sidebar-backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Padding lateral fluido del Dashboard */
+  .app-page {
+    padding-left: max(env(safe-area-inset-left), 14px) !important;
+    padding-right: max(env(safe-area-inset-right), 14px) !important;
+  }
+
+  /* Cards con menos radio en movil (mas info por px) */
+  .app-card {
+    border-radius: 14px !important;
+    padding: 16px !important;
+  }
+
+  /* KPIs mobile: 2 cols para las principales, 2 para el detalle */
+  .kpi-grid-main {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+  .kpi-grid-detail {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  /* Section spacing mas compacto */
+  section { margin-bottom: 0 !important; }
+}
+
+/* Ampliar el rango de tablet (para hacer 2 cols en KpiCard main) */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .kpi-grid-main {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* Touch targets: minimo 44px para elementos interactivos claves */
+@media (hover: none) and (pointer: coarse) {
+  button, a[role="button"], .alert-chip, .alert-btn, .alert-refresh {
+    min-height: 44px;
+  }
+}
+
+/* ============================================================
+   FASE 4 · Blocks refactor mobile (< 767px)
+   ============================================================ */
+
+@media (max-width: 767px) {
+  /* ---- FunnelBlock: la fila de conversiones pasa a 2 cols wrap ---- */
+  .funnel-conversion-row {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* ---- EvolutionBlock: chart mas compacto y toggles con wrap ---- */
+  .evolution-toggle-row {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .evolution-chart-area {
+    height: 200px !important;
+  }
+
+  /* ---- BillingBlock: minmax mas pequeno ---- */
+  .billing-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* ---- GoalsBlock: antes/despues stacks ---- */
+  .ba-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+
+  /* ---- ClinicDistributionBlock: chart + lista stacked ---- */
+  .clinic-dist-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+
+  /* ---- CampaignsBlock: overflow horizontal si tiene tabla larga ---- */
+  .campaigns-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  /* ---- TopCallsBlock: cards en 1 col ---- */
+  .top-calls-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ---- LeadsBlock: row simplificado ---- */
+  .leads-row {
+    grid-template-columns: 1fr auto !important;
+    gap: 8px !important;
+    padding: 12px 14px !important;
+  }
+  .leads-row-secondary {
+    display: none !important;
+  }
+
+  /* ---- ObjectionsBlock: mas aire para tap ---- */
+  .obj-row-btn {
+    padding: 12px 8px !important;
+    min-height: 44px;
+  }
+
+  /* ---- Section separator con menos margen ---- */
+  section + section, .fade-in-up + hr, div > div + div hr {
+    margin: 16px 0 !important;
+  }
+
+  /* ---- CountUp value en KPI: no pasar de 26px ---- */
+  .kpi-grid-main .app-card > div:nth-child(2),
+  .kpi-grid-detail .app-card > div:nth-child(2) {
+    font-size: 22px !important;
+  }
+}
+
+/* ============================================================
+   FASE 5 · Alertas mobile
+   ============================================================ */
+
+@media (max-width: 767px) {
+  /* Chips filter con scroll horizontal + snap */
+  .alert-chip-row {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    margin: 0 -14px 16px;
+    padding: 0 14px 4px;
+    gap: 8px !important;
+  }
+  .alert-chip-row::-webkit-scrollbar { display: none; }
+  .alert-chip {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    padding: 8px 12px !important;
+    min-height: 40px;
+  }
+
+  /* Cards de alerta full width + 1 col */
+  .alerts-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Botones si/no mas alto */
+  .alert-btn {
+    min-height: 44px !important;
+    font-size: 13px !important;
+  }
+
+  .alert-refresh {
+    min-height: 40px;
+  }
+}
+
+/* ============================================================
+   FASE 6 · Calendar mobile (agenda view)
+   ============================================================ */
+
+@media (max-width: 767px) {
+  .calendar-mobile-agenda {
+    display: block !important;
+  }
+  .calendar-desktop-grid {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .calendar-mobile-agenda {
+    display: none !important;
+  }
+}
+
+/* ============================================================
+   FASE 7 · Detalles finos
+   ============================================================ */
+
+/* Changelog widget: en mobile no debe tapar el content */
+@media (max-width: 767px) {
+  .changelog-widget-fab {
+    bottom: max(env(safe-area-inset-bottom), 12px) !important;
+    right: 12px !important;
+    width: 44px !important;
+    height: 44px !important;
+  }
+  .changelog-widget-panel {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(max(env(safe-area-inset-bottom), 12px) + 56px) !important;
+    max-height: 60dvh !important;
+  }
+}
+
+/* SegmentTabs con scroll horizontal si hace falta */
+@media (max-width: 767px) {
+  .segment-tabs-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 0 14px !important;
+    margin: 0 !important;
+  }
+  .segment-tabs-wrapper::-webkit-scrollbar { display: none; }
+  .segment-tabs-wrapper > * {
+    flex-shrink: 0 !important;
+  }
+}
+
+/* ReportsPanel: cards con radio mas discreto y padding compacto */
+@media (max-width: 767px) {
+  .reports-panel-card {
+    padding: 14px 16px !important;
+    border-radius: 12px !important;
+  }
+}
+
+/* Nav labels en sidebar drawer con letra ligeramente mas grande para tap */
+@media (max-width: 767px) {
+  .sidebar-panel .nav-label {
+    font-size: 14px !important;
+  }
+  .sidebar-panel button {
+    min-height: 42px;
+  }
+}
+
+/* Splash screen se adapta al viewport dinamico */
+.splash-screen {
+  min-height: 100dvh !important;
+}
+
+/* ============================================================
+   FASE 7b · Header mobile refinements
+   ============================================================ */
+
+@media (max-width: 767px) {
+  .app-header {
+    padding: 6px 14px !important;
+    min-height: 52px !important;
+  }
+  .app-header-title {
+    font-size: 13px !important;
+    max-width: 200px;
+  }
+  .app-header-period {
+    font-size: 10px !important;
+    max-width: 200px;
+  }
+  /* Right-side controls compactos */
+  .app-header > div:last-child {
+    gap: 6px !important;
+  }
+}
+
+/* ============================================================
+   Fluid typography helper: usar en textos hero
+   ============================================================ */
+.fluid-hero-num {
+  font-size: clamp(32px, 6vw, 44px);
+}
+.fluid-section-title {
+  font-size: clamp(15px, 2.4vw, 22px);
+}
+
+/* ============================================================
+   Focus visible mejorado para navegacion teclado
+   ============================================================ */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

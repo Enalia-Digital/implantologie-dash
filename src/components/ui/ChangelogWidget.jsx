@@ -325,6 +325,7 @@ export default function ChangelogWidget({ visible, resetKey = 0 }) {
             transition={SPRING_MORPH}
             whileHover={{ y: -3, transition: { type: 'spring', stiffness: 400, damping: 22 } }}
             whileTap={{ scale: 0.97, transition: { duration: 0.1 } }}
+            className="changelog-widget-fab"
             style={{
               position: 'fixed',
               right: 24, bottom: 24, zIndex: 92,

@@ -10,6 +10,12 @@ const CALENDAR_URLS = {
   san_jose: 'https://calendar.google.com/calendar/embed?height=600&wkst=1&ctz=Europe%2FMadrid&showPrint=0&showTz=0&showCalendars=0&src=MmI5YjJhNzAxZGU4Y2Q2ZDFmYWU4YzM0MTM2ZjMwODRmNzg4MzVhNzVhZTI1ZDYyMzg5ZWVlYzI5M2RiYTQ3M0Bncm91cC5jYWxlbmRhci5nb29nbGUuY29t&color=%234285f4',
 };
 
+// Google Calendar en mobile: usar modo AGENDA (list view) que es mucho mejor tactil.
+function toMobileUrl(url) {
+  if (!url) return null;
+  return url.replace('&showPrint=0', '&mode=AGENDA&showPrint=0').replace('embed?', 'embed?mode=AGENDA&');
+}
+
 export default function CalendarView() {
   const { activeClinic, setActiveClinic } = useClinic();
 
@@ -20,15 +26,23 @@ export default function CalendarView() {
   }, [activeClinic, setActiveClinic]);
 
   const url = CALENDAR_URLS[activeClinic];
+  const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+  const finalUrl = isMobile ? toMobileUrl(url) : url;
 
   return (
     <AppLayout>
-      <div style={{ padding: '24px 32px', height: 'calc(100vh - 52px)' }}>
-        {url ? (
+      <div
+        className="app-page"
+        style={{
+          padding: 'clamp(12px, 3vw, 24px) clamp(12px, 3vw, 32px)',
+          height: 'calc(100dvh - 52px)',
+        }}
+      >
+        {finalUrl ? (
           <iframe
-            src={url}
+            src={finalUrl}
             style={{
-              width: '100%', height: '100%', border: 'none', borderRadius: 10,
+              width: '100%', height: '100%', border: 'none', borderRadius: 14,
               background: 'var(--bg-card)',
             }}
             title={`Calendario ${clinicHeader[activeClinic]}`}
@@ -38,8 +52,8 @@ export default function CalendarView() {
             <div
               style={{
                 textAlign: 'center', background: 'var(--bg-card)',
-                border: '1px solid var(--border-subtle)', borderRadius: 10,
-                padding: '40px 48px',
+                border: '1px solid var(--border-subtle)', borderRadius: 14,
+                padding: '32px 28px', maxWidth: 420,
               }}
             >
               <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>

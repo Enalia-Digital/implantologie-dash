@@ -21,6 +21,7 @@ const FIELDS = {
     'fldGmGucSFIxPB1yd', // ha_acudido
     'fldsXibskwiGbSr0U', // last_contact_at
     'fldqPNT9QE4RsBWbm', // appointment_id
+    'fldTh6L03bGGj43Em', // created_at (fecha real de entrada)
   ],
   calls: [
     'fldJPcVfHrXDdd5h2', // call_id
@@ -120,6 +121,7 @@ function fieldMap(tableName) {
       fldGmGucSFIxPB1yd: 'ha_acudido',
       fldsXibskwiGbSr0U: 'last_contact_at',
       fldqPNT9QE4RsBWbm: 'appointment_id',
+      fldTh6L03bGGj43Em: 'created_at',
     },
     calls: {
       fldJPcVfHrXDdd5h2: 'call_id',

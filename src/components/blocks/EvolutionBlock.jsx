@@ -10,7 +10,7 @@ const SERIES = [
 ];
 
 export default function EvolutionBlock({ data }) {
-  const [active, setActive] = useState({ leads: true, contactados: false, citas: true });
+  const [active, setActive] = useState({ leads: true, contactados: true, citas: true });
 
   return (
     <section>
@@ -23,7 +23,7 @@ export default function EvolutionBlock({ data }) {
               Contactados = leads que cogieron el teléfono
             </span>
           </span>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div className="evolution-toggle-row" style={{ display: 'flex', gap: 6 }}>
             {SERIES.map((s) => {
               const on = active[s.key];
               return (
@@ -50,7 +50,7 @@ export default function EvolutionBlock({ data }) {
           </div>
         </div>
 
-        <div style={{ height: 220 }}>
+        <div className="evolution-chart-area" style={{ height: 220 }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data.evolucion} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <defs>

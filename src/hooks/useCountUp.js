@@ -5,24 +5,30 @@ const prefersReduced =
   window.matchMedia &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// Cuenta desde 0 hasta `target` en `duration` ms con ease-out.
-// `deps` reinicia la animación (p. ej. al cambiar de clínica).
 export function useCountUp(target, duration = 800, deps = []) {
   const numericTarget = typeof target === 'number' && Number.isFinite(target) ? target : 0;
   const [value, setValue] = useState(numericTarget);
   const frameRef = useRef(null);
   const fallbackRef = useRef(null);
+  const prevTarget = useRef(numericTarget);
 
   useEffect(() => {
     if (prefersReduced) {
       setValue(numericTarget);
+      prevTarget.current = numericTarget;
       return undefined;
     }
-    let start = null;
-    const from = 0;
-    const ease = (t) => 1 - Math.pow(1 - t, 3);
 
-    setValue(0);
+    const from = prevTarget.current;
+    prevTarget.current = numericTarget;
+
+    if (from === numericTarget) {
+      setValue(numericTarget);
+      return undefined;
+    }
+
+    let start = null;
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
 
     const step = (ts) => {
       if (start === null) start = ts;
@@ -34,7 +40,6 @@ export function useCountUp(target, duration = 800, deps = []) {
     };
     frameRef.current = requestAnimationFrame(step);
 
-    // Fallback si el navegador throttlea rAF (pestañas en background)
     fallbackRef.current = setTimeout(() => setValue(numericTarget), duration + 100);
 
     return () => {

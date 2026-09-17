@@ -18,24 +18,18 @@ const C = {
 export function Card({ children, style, accent, accentColor, className = '', ...rest }) {
   return (
     <div
-      className={className}
+      className={`app-card${accent ? ' app-card-accent' : ''} ${className}`.trim()}
       style={{
+        // Estetica Apple: radio amplio, hairline por defecto, sombra tintada minima,
+        // hover con lift sutil animado con easing fuerte.
         background: C.card,
-        border: `1px solid ${C.subtle}`,
-        borderLeft: accent ? `2px solid ${accentColor || C.accent}` : `1px solid ${C.subtle}`,
-        borderRadius: 10,
+        border: `1px solid ${C.hairline}`,
+        borderLeft: accent ? `2px solid ${accentColor || C.accent}` : `1px solid ${C.hairline}`,
+        borderRadius: 16,
         padding: 20,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        transition: 'border-color 0.15s ease',
+        boxShadow: '0 1px 2px rgba(15, 15, 25, 0.03)',
+        transition: 'border-color 200ms cubic-bezier(0.23,1,0.32,1), box-shadow 200ms cubic-bezier(0.23,1,0.32,1), transform 200ms cubic-bezier(0.23,1,0.32,1)',
         ...style,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = 'var(--border-medium)';
-        if (accent) e.currentTarget.style.borderLeftColor = accentColor || C.accent;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = C.subtle;
-        if (accent) e.currentTarget.style.borderLeftColor = accentColor || C.accent;
       }}
       {...rest}
     >
@@ -46,12 +40,12 @@ export function Card({ children, style, accent, accentColor, className = '', ...
 
 export function SectionLabel({ children, right }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14, gap: 12 }}>
       <span
         style={{
           fontSize: 10,
           fontWeight: 600,
-          letterSpacing: '0.12em',
+          letterSpacing: '0.14em',
           textTransform: 'uppercase',
           color: C.textMuted,
         }}

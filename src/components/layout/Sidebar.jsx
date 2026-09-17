@@ -3,6 +3,7 @@ import { useClinic, PERIODS } from '../../context/ClinicContext';
 import { useTheme } from '../../context/ThemeContext';
 import { clinics } from '../../data/mockData';
 import usePWA from '../../hooks/usePWA';
+import useAirtableData from '../../hooks/useAirtableData';
 
 const ICON = {
   dashboard: (
@@ -24,6 +25,19 @@ const ICON = {
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="2" width="12" height="14" rx="2" />
       <path d="M6 5h6M6 9h2M10 9h2M6 12h2M10 12h2" />
+    </svg>
+  ),
+  alertas: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.5 8a4.5 4.5 0 019 0v3l1.5 2.2H3l1.5-2.2V8z" />
+      <path d="M7.5 15.5a1.7 1.7 0 003 0" />
+    </svg>
+  ),
+  reportes: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 2h7l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" />
+      <path d="M11 2v3h3" />
+      <path d="M6 9h6M6 12h4" />
     </svg>
   ),
   collapse: (
@@ -59,10 +73,14 @@ const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: ICON.dashboard },
   { id: 'calendario', label: 'Calendario', path: '/calendario', icon: ICON.calendario },
   { id: 'calculadora', label: 'Calculadora', path: '/calculadora', icon: ICON.calculadora },
+  { id: 'alertas', label: 'Alertas', path: '/alertas', icon: ICON.alertas },
+  { id: 'reportes', label: 'Reportes', path: '/reportes', icon: ICON.reportes },
 ];
 
-export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClose }) {
+export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClose, isPeek = false }) {
   const { activeClinic, setActiveClinic, period, setPeriod } = useClinic();
+  const { data: alertData } = useAirtableData(activeClinic, period);
+  const pendientesCount = alertData?.citasPendientesConfirmar?.length || 0;
   const { dark, toggle: toggleTheme } = useTheme();
   const { canInstall, install } = usePWA();
   const location = useLocation();
@@ -74,7 +92,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
   const btnStyle = (active) => ({
     display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
     justifyContent: collapsed ? 'center' : 'flex-start',
-    width: '100%', padding: collapsed ? '10px 0' : '8px 12px',
+    width: '100%', padding: collapsed ? '8px 0' : '6px 12px',
     borderRadius: 8, border: 'none',
     background: active ? 'var(--sb-active)' : 'transparent',
     textAlign: 'left',
@@ -84,18 +102,26 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
 
   return (
     <aside
-      className={`sidebar-panel${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`}
+      className={`sidebar-panel${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}${isPeek ? ' peek' : ''}`}
       style={{
         width: w,
         background: 'var(--sb-bg)',
         display: 'flex', flexDirection: 'column',
-        height: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 50,
-        borderRight: '1px solid var(--sb-border)',
-        overflow: 'hidden',
+        height: '100vh',
+        borderRight: isPeek ? '1px solid rgba(0,0,0,0.06)' : '1px solid var(--sb-border)',
+        borderRadius: isPeek ? '0 16px 16px 0' : 0,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'transparent transparent',
+        backdropFilter: isPeek ? 'blur(24px) saturate(180%)' : 'none',
+        WebkitBackdropFilter: isPeek ? 'blur(24px) saturate(180%)' : 'none',
+        transition: 'width 260ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 200ms cubic-bezier(0.23,1,0.32,1), border-radius 200ms cubic-bezier(0.23,1,0.32,1)',
+        boxShadow: isPeek ? '0 20px 60px rgba(0,0,0,0.18)' : 'none',
       }}
     >
       {/* Logo */}
-      <div style={{ padding: collapsed ? '20px 0' : '20px 16px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: collapsed ? 'center' : 'flex-start' }}>
+      <div style={{ padding: collapsed ? '14px 0' : '14px 16px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: collapsed ? 'center' : 'flex-start', flexShrink: 0 }}>
         <div style={{
           width: 28, height: 28, flexShrink: 0,
           background: 'var(--accent)',
@@ -113,11 +139,11 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
         </span>
       </div>
 
-      <div style={{ height: 1, background: 'var(--sb-border)', margin: collapsed ? '0 8px' : '0 16px' }} />
+      <div style={{ height: 1, background: 'var(--sb-border)', margin: collapsed ? '0 8px' : '0 16px', flexShrink: 0 }} />
 
       {/* Clinics */}
-      <div style={{ padding: collapsed ? '12px 6px 0' : '12px 10px 0', flex: '0 0 auto' }}>
-        <div className="sidebar-section-title" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--sb-text-muted)', padding: '0 8px', marginBottom: 6 }}>
+      <div style={{ padding: collapsed ? '10px 6px 0' : '10px 10px 0', flex: '0 0 auto' }}>
+        <div className="sidebar-section-title" style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--sb-text-muted)', padding: '0 8px', marginBottom: 4 }}>
           Clínicas
         </div>
         {clinics.map((c) => {
@@ -147,7 +173,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
         })}
       </div>
 
-      <div style={{ height: 1, background: 'var(--sb-border)', margin: collapsed ? '12px 8px' : '12px 16px' }} />
+      <div style={{ height: 1, background: 'var(--sb-border)', margin: collapsed ? '10px 8px' : '10px 16px', flexShrink: 0 }} />
 
       {/* Navigation */}
       <div style={{ padding: collapsed ? '0 6px' : '0 10px', flex: '0 0 auto' }}>
@@ -162,10 +188,48 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
               onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--sb-hover)'; }}
               onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; }}
             >
-              <span style={{ flexShrink: 0, display: 'flex' }}>{item.icon}</span>
+              <span style={{ position: 'relative', flexShrink: 0, display: 'flex' }}>
+                {item.icon}
+                {item.id === 'alertas' && pendientesCount > 0 && (
+                  <span
+                    aria-label={pendientesCount + ' pendientes'}
+                    style={{
+                      position: 'absolute',
+                      top: -4, right: -6,
+                      minWidth: 16, height: 16, padding: '0 4px',
+                      borderRadius: 999,
+                      background: 'var(--red)',
+                      color: 'white',
+                      fontSize: 9, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontVariantNumeric: 'tabular-nums',
+                      lineHeight: 1,
+                      boxShadow: '0 0 0 2px var(--sb-bg)',
+                    }}
+                  >
+                    {pendientesCount > 99 ? '99+' : pendientesCount}
+                  </span>
+                )}
+              </span>
               <span className="nav-label" style={{ fontSize: 13, fontWeight: active ? 500 : 400 }}>
                 {item.label}
               </span>
+              {!collapsed && item.id === 'alertas' && pendientesCount > 0 && (
+                <span
+                  style={{
+                    marginLeft: 'auto',
+                    minWidth: 20, padding: '2px 7px',
+                    borderRadius: 999,
+                    background: 'rgba(230, 92, 100, 0.15)',
+                    color: 'var(--red)',
+                    fontSize: 10, fontWeight: 600,
+                    fontVariantNumeric: 'tabular-nums',
+                    textAlign: 'center',
+                  }}
+                >
+                  {pendientesCount}
+                </span>
+              )}
             </button>
           );
         })}
@@ -173,22 +237,20 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
 
       {/* Period — segmented pills */}
       {!collapsed && (
-        <div className="sidebar-period" style={{ padding: '16px 14px 0' }}>
-          <div style={{ height: 1, background: 'var(--sb-border)', marginBottom: 12 }} />
-          <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--sb-text-muted)', marginBottom: 8 }}>
+        <div className="sidebar-period" style={{ padding: '12px 14px 0', flexShrink: 0 }}>
+          <div style={{ height: 1, background: 'var(--sb-border)', marginBottom: 10 }} />
+          <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--sb-text-muted)', marginBottom: 6 }}>
             Periodo
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-            {PERIODS.map((p, i) => {
+            {PERIODS.filter((p) => p.id !== 'enalia').map((p) => {
               const active = p.id === period;
-              const isLast = i === PERIODS.length - 1;
-              const isOddLast = isLast && PERIODS.length % 2 !== 0;
               return (
                 <button
                   key={p.id}
                   onClick={() => setPeriod(p.id)}
                   style={{
-                    padding: '7px 10px',
+                    padding: '7px 8px',
                     fontSize: 11, fontWeight: active ? 600 : 500,
                     color: active ? 'var(--sb-text)' : 'var(--sb-text-secondary)',
                     background: active ? 'var(--sb-active)' : 'var(--sb-bg-elevated)',
@@ -197,7 +259,7 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
                     cursor: 'pointer', fontFamily: 'inherit',
                     transition: 'background 160ms ease, border-color 160ms ease, color 160ms ease',
                     textAlign: 'center', whiteSpace: 'nowrap',
-                    gridColumn: isOddLast ? '1 / -1' : undefined,
+                    overflow: 'hidden', textOverflow: 'ellipsis',
                   }}
                   onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--sb-hover)'; }}
                   onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'var(--sb-bg-elevated)'; }}
@@ -207,11 +269,43 @@ export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClo
               );
             })}
           </div>
+          {(() => {
+            const p = PERIODS.find((x) => x.id === 'enalia');
+            if (!p) return null;
+            const active = p.id === period;
+            return (
+              <button
+                onClick={() => setPeriod(p.id)}
+                style={{
+                  marginTop: 6, width: '100%',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '8px 10px',
+                  fontSize: 11, fontWeight: active ? 600 : 500,
+                  color: active ? 'var(--accent)' : 'var(--sb-text-secondary)',
+                  background: active ? 'var(--accent-dim)' : 'var(--sb-bg-elevated)',
+                  border: `1px solid ${active ? 'var(--accent-border)' : 'var(--sb-border)'}`,
+                  borderRadius: 8,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  transition: 'background 160ms ease, border-color 160ms ease, color 160ms ease',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'var(--sb-hover)'; }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'var(--sb-bg-elevated)'; }}
+                title="Desde el inicio de Enalia"
+              >
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="6" cy="6" r="4.5" />
+                  <path d="M6 3.5V6l1.6 1.2" />
+                </svg>
+                Histórico Enalia
+              </button>
+            );
+          })()}
         </div>
       )}
 
       {/* Bottom */}
-      <div style={{ marginTop: 'auto', padding: collapsed ? '8px 6px 12px' : '8px 10px 16px' }}>
+      <div style={{ marginTop: 'auto', padding: collapsed ? '6px 6px 10px' : '6px 10px 12px', flexShrink: 0 }}>
         <div style={{ height: 1, background: 'var(--sb-border)', marginBottom: 8, margin: collapsed ? '0 8px 8px' : '0 6px 8px' }} />
 
         {/* Collapse toggle */}
