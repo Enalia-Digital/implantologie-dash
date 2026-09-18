@@ -128,11 +128,26 @@ const OBJECTION_MAP = [
   { category: 'Salud / Médica', patterns: ['diabetes', 'diabetica', 'diabetico', 'salud', 'enfermedad', 'medicac', 'medicament', 'anticoagul', 'sintrom', 'quimio', 'cardiac', 'hipertens', 'embaraz', 'embarazada', 'oncolog', 'osteoporos', 'contraindicac'] },
 ];
 
-// Una llamada se considera ATENDIDA solo si el lead descolgó y hubo conversación real.
-// Umbral: 15 s. Por debajo suele ser ring sin respuesta o colgar inmediato.
-// duration_seconds = 0 significa que sonó pero nadie cogió el teléfono.
+// Una llamada se considera ATENDIDA si:
+//  - su outcome NO esta en la lista de "sin contacto real" (contestador,
+//    numero equivocado, no descuelgan, buzon, ocupado), y
+//  - su duracion supera el umbral de 15 s (por debajo suele ser un ring
+//    corto o alguien que descuelga y cuelga sin hablar).
+// Un outcome "unknown" (el mayoritario del sistema) sigue el umbral de
+// duracion; los outcomes positivos como appointment_booked, qualified,
+// callback_requested, not_interested, human_transfer y las filas sin
+// outcome tambien se filtran solo por duracion.
 const MIN_CONTACT_SECONDS = 15;
+const NO_CONTACT_OUTCOMES = new Set([
+  'no_answer',
+  'wrong_number',
+  'voicemail',
+  'busy',
+  'failed',
+]);
 function fueAtendida(call) {
+  const outcome = String(call.call_outcome || '').trim().toLowerCase();
+  if (NO_CONTACT_OUTCOMES.has(outcome)) return false;
   return Number(call.duration_seconds) >= MIN_CONTACT_SECONDS;
 }
 
@@ -375,10 +390,20 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     if (fueAtendida(c)) contactedLeadIds.add(lid);
   });
 
+  // Un lead cuenta como CONTACTADO si tiene al menos una llamada valida del
+  // periodo (regla fueAtendida) O si tiene una cita del periodo. Esto ultimo
+  // cubre los casos manuales: cuando la asistente agenda directamente en
+  // Airtable sin registrar la llamada, el lead SI hubo contacto humano y no
+  // debe quedarse fuera del denominador de "agendamiento / contactados".
+  const periodApptLeadIds = new Set();
+  periodAppts.forEach((a) => {
+    if (a.lead_id) periodApptLeadIds.add(String(a.lead_id).trim());
+  });
   const totalLeads = periodLeads.length;
-  const leadsContactados = periodLeads.filter((l) =>
-    contactedLeadIds.has(String(l.lead_id).trim())
-  ).length;
+  const leadsContactados = periodLeads.filter((l) => {
+    const lid = String(l.lead_id).trim();
+    return contactedLeadIds.has(lid) || periodApptLeadIds.has(lid);
+  }).length;
   const leadsLlamados = periodLeads.filter((l) =>
     dialedLeadIds.has(String(l.lead_id).trim())
   ).length;

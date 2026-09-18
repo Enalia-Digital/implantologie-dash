@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'recordId invalido' });
   }
   if (!ALLOWED.has(status)) {
-    return res.status(400).json({ error: 'status debe ser attendance | no_show | clear' });
+    return res.status(400).json({ error: 'status debe ser attended | no_show | clear' });
   }
 
   const canonical = CANONICAL[status] || status;
@@ -68,7 +68,13 @@ export default async function handler(req, res) {
 
     if (!airtableRes.ok) {
       const txt = await airtableRes.text();
-      return res.status(airtableRes.status).json({ error: `airtable: ${txt}` });
+      let friendly = `Airtable ${airtableRes.status}`;
+      if (/INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND|NOT_AUTHORIZED/i.test(txt)) {
+        friendly = 'El token de Airtable no tiene permiso de escritura. Añade el scope data.records:write al PAT en airtable.com/create/tokens y verifica que la base esta en Access.';
+      } else if (/INVALID_MULTIPLE_CHOICE_OPTIONS|Cannot parse value/i.test(txt)) {
+        friendly = 'Airtable rechazo el valor. Revisa que las opciones "attended" y "no_show" existen en el select attendance_status.';
+      }
+      return res.status(airtableRes.status).json({ error: friendly, detail: txt });
     }
     const json = await airtableRes.json();
 
@@ -90,10 +96,10 @@ export default async function handler(req, res) {
         clinicRaw: meta.clinicRaw || '',
         appointmentStart: meta.appointmentStart || '',
         phone: meta.phone || '',
-        status,
-        asistio: status === 'attendance',
-        noShow: status === 'no_show',
-        cleared: status === 'clear',
+        status: canonical,
+        asistio: canonical === 'attended',
+        noShow: canonical === 'no_show',
+        cleared: canonical === 'clear',
         confirmedAt: new Date().toISOString(),
       };
 
