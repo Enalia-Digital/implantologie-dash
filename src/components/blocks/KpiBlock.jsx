@@ -51,12 +51,17 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
   const periodoTxt = PERIODO_LABEL[period] || '';
   const seg = data.segmentos;
 
-  // Universo consistente: la tasa "Agendamiento / Contactados" y
-  // "Agendamiento / Leads" deben usar citas NUEVAS (leads del periodo) para
-  // que numerador y denominador sean el mismo universo — asi nunca sale >100%.
-  // Las citas de rescate se muestran aparte.
+  // Universo consistente: los ratios "Agendamiento / Contactados" y
+  // "Agendamiento / Leads" usan LEADS con cita nueva (no numero de citas)
+  // para que numerador y denominador sean el mismo universo y el ratio
+  // nunca supere el 100 %. Las citas de rescate se muestran aparte.
   const citasNuevas = data.citasNuevas != null ? data.citasNuevas : data.citasAgendadas;
   const citasRescate = data.citasRescate || 0;
+  // Fallback: en periodos antiguos o mocks el backend puede no traer aun
+  // leadsAgendadosNuevos; usamos citasNuevas capado al denominador.
+  const leadsAgendadosNuevos = data.leadsAgendadosNuevos != null
+    ? data.leadsAgendadosNuevos
+    : Math.min(citasNuevas, data.leadsContactados || citasNuevas);
   const m = {
     totalLeads: data.totalLeads,
     leadsContactados: data.leadsContactados,
@@ -71,8 +76,8 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
     intentosPorLead: data.intentosPorLeadNuevo != null
       ? data.intentosPorLeadNuevo
       : (data.totalLeads > 0 ? data.totalLlamadas / data.totalLeads : null),
-    tasaAgendamiento: data.totalLeads > 0 ? (citasNuevas / data.totalLeads) * 100 : null,
-    tasaReunion: data.leadsContactados > 0 ? (citasNuevas / data.leadsContactados) * 100 : null,
+    tasaAgendamiento: data.totalLeads > 0 ? (leadsAgendadosNuevos / data.totalLeads) * 100 : null,
+    tasaReunion: data.leadsContactados > 0 ? (leadsAgendadosNuevos / data.leadsContactados) * 100 : null,
     tiempoRespuestaSeg: data.tiempoRespuestaSeg,
     valoracionMedia: data.valoracionMedia,
   };
