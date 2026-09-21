@@ -13,6 +13,6 @@ export const DEMO_CLINIC_HEADER = 'IOI Aurora · Clínica Dental';
 
 export const DEMO_TARGETS = {
   totalLeads: 300,
-  leadsContactados: 73,
-  tasaAgendamientoSobreContactados: 0.62,
+  leadsContactados: 271,
+  tasaAgendamientoSobreLeads: 0.60,
 };

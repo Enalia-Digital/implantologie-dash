@@ -5,8 +5,8 @@
 //
 // Cifras ancla pedidas por el equipo comercial:
 //   - 300 leads en el periodo
-//   - 73 leads contactados
-//   - 62 % de agendamiento sobre contactados => ~45 citas agendadas
+//   - 271 leads contactados
+//   - 60 % de agendamiento sobre leads => 180 citas nuevas
 // El resto se calcula a partir de esas cifras y se mantiene coherente.
 import { defaultConfig } from './config';
 import { DEMO_CLINIC_ID, DEMO_CLINIC_NAME, DEMO_TARGETS } from './demoMode';
@@ -50,15 +50,14 @@ function periodDescriptor(period) {
   };
 }
 
-// Reparto en 4 semanas del mes para la vista de evolucion.
 function buildEvolucion(totalLeads, contactados, citas) {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const semanas = 4;
-  // Distribucion no uniforme: arranque suave y aceleracion.
   const pesos = [0.18, 0.24, 0.28, 0.30];
   let cumL = 0, cumC = 0, cumCi = 0;
   const out = [];
+  const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   for (let i = 0; i < semanas; i++) {
     const wLeads = Math.round(totalLeads * pesos[i]);
     const wContact = Math.round(contactados * pesos[i]);
@@ -69,7 +68,7 @@ function buildEvolucion(totalLeads, contactados, citas) {
     const d = new Date(start.getFullYear(), start.getMonth(), 1 + i * 7);
     const dEnd = new Date(start.getFullYear(), start.getMonth(), Math.min(1 + (i + 1) * 7 - 1, 30));
     out.push({
-      dia: `${d.getDate()} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][d.getMonth()]}–${dEnd.getDate()} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][dEnd.getMonth()]}`,
+      dia: `${d.getDate()} ${MES[d.getMonth()]}–${dEnd.getDate()} ${MES[dEnd.getMonth()]}`,
       leads: cumL,
       contactados: cumC,
       citas: cumCi,
@@ -79,11 +78,10 @@ function buildEvolucion(totalLeads, contactados, citas) {
 }
 
 function buildSerieReintentos() {
-  // 12 buckets simulando reactivacion progresiva.
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  const valores = [8, 12, 15, 18, 14, 20, 22, 19, 24, 17, 15, 16];
+  const valores = [12, 18, 20, 24, 22, 28, 30, 26, 32, 24, 22, 21];
   return valores.map((v, i) => {
     const d = new Date(start.getFullYear(), start.getMonth(), 1 + Math.floor(i * (30 / 12)));
     return { label: `${d.getDate()} ${MES[d.getMonth()]}`, value: v };
@@ -95,7 +93,7 @@ function buildAsistencias(nAsistidas, nNoShow) {
   const base = new Date(now.getFullYear(), now.getMonth() - 1, 3, 9, 0, 0);
   const items = [];
   for (let i = 0; i < nAsistidas; i++) {
-    const d = new Date(base.getTime() + i * 36 * 60 * 60 * 1000);
+    const d = new Date(base.getTime() + i * 24 * 60 * 60 * 1000);
     items.push({
       recordId: `demo-att-${i}`,
       leadId: `l:demo-${i}`,
@@ -108,7 +106,7 @@ function buildAsistencias(nAsistidas, nNoShow) {
     });
   }
   for (let i = 0; i < nNoShow; i++) {
-    const d = new Date(base.getTime() + (nAsistidas + i) * 36 * 60 * 60 * 1000);
+    const d = new Date(base.getTime() + (nAsistidas + i) * 30 * 60 * 60 * 1000);
     items.push({
       recordId: `demo-ns-${i}`,
       leadId: `l:demo-ns-${i}`,
@@ -124,17 +122,16 @@ function buildAsistencias(nAsistidas, nNoShow) {
 }
 
 function buildCampanas(totalLeads, contactados, citas) {
-  // Reparto proporcional entre las 5 campanas.
   const pesosLeads = [0.30, 0.24, 0.20, 0.16, 0.10];
-  const boostAgend = [1.10, 1.02, 0.95, 0.90, 1.05]; // pequenas variaciones de rendimiento
+  const boostAgend = [1.10, 1.02, 0.95, 0.90, 1.05];
   const rows = CAMPANAS.map((c, i) => {
     const leads = Math.round(totalLeads * pesosLeads[i]);
     const conta = Math.round(contactados * pesosLeads[i]);
-    const cit   = Math.round(citas * pesosLeads[i] * boostAgend[i]);
+    const cit   = Math.min(conta, Math.round(citas * pesosLeads[i] * boostAgend[i]));
     const conv  = leads > 0 ? parseFloat(((cit / leads) * 100).toFixed(1)) : 0;
-    const detalles = Array.from({ length: Math.min(8, leads) }, (_, j) => {
+    const detalles = Array.from({ length: Math.min(10, leads) }, (_, j) => {
       const idx = (i * 7 + j) % NOMBRES.length;
-      const estado = j < cit / (leads / 8) ? 'Agendado' : j < conta / (leads / 8) ? 'Contactado' : 'Sin llamar';
+      const estado = j < cit / (leads / 10) ? 'Agendado' : j < conta / (leads / 10) ? 'Contactado' : 'Sin llamar';
       return {
         nombre: NOMBRES[idx],
         fecha: `${(3 + j) % 28 + 1}/09`,
@@ -145,7 +142,7 @@ function buildCampanas(totalLeads, contactados, citas) {
         estado,
       };
     });
-    return { ...c, leads, contactados: conta, citas: cit, conv, llamados: Math.round(leads * 0.95), detalles };
+    return { ...c, leads, contactados: conta, citas: cit, conv, llamados: Math.round(leads * 0.98), detalles };
   }).sort((a, b) => b.citas - a.citas);
   return rows;
 }
@@ -164,12 +161,12 @@ function buildLeadsRecientes() {
   return NOMBRES.slice(0, 10).map((n, i) => ({
     nombre: n,
     telefono: `+34 XXX XXX ${String(140 + i * 33).slice(-3)}`,
-    status: ['agendado','contactado','agendado','callback','agendado','contactado','nuevo','agendado','contactado','agendado'][i],
+    status: ['agendado','agendado','agendado','contactado','agendado','agendado','contactado','agendado','agendado','agendado'][i],
     score: null,
     anuncio: CAMPANAS[i % CAMPANAS.length].anuncio,
-    cita: i < 6 ? `${20 - i}/09, ${9 + (i % 3)}:${i % 2 === 0 ? '00' : '30'}` : null,
-    objection: [null, 'Precio', null, 'Miedo', null, null, 'Ya tiene dentista', null, 'Tiempo', null][i],
-    summary: i < 6 ? 'Cita confirmada para valoración inicial' : null,
+    cita: i < 8 ? `${20 - i}/09, ${9 + (i % 3)}:${i % 2 === 0 ? '00' : '30'}` : null,
+    objection: [null, null, null, 'Precio', null, null, 'Miedo', null, null, null][i],
+    summary: i < 8 ? 'Cita confirmada para valoración inicial' : null,
   }));
 }
 
@@ -192,7 +189,8 @@ function buildObjeciones(base) {
     { label: 'Ubicación',           share: 0.09 },
     { label: 'Callback',            share: 0.07 },
   ];
-  const total = base;
+  // Solo un tercio de los contactados terminan con una objecion registrada.
+  const total = Math.round(base * 0.35);
   const out = raw.map((o) => {
     const count = Math.max(1, Math.round(total * o.share));
     const detalles = Array.from({ length: Math.min(4, count) }, (_, j) => ({
@@ -214,52 +212,53 @@ function buildObjeciones(base) {
 function buildHistorico() {
   // 4 meses hacia atras, cerrando en el mes pasado con las cifras ancla.
   return [
-    { mes: 'Jun 25', leads: 210, citas:  95, asistidas: 55,  coste: 512.4, eurPorCita: 5.39 },
-    { mes: 'Jul 25', leads: 245, citas: 118, asistidas: 68,  coste: 605.8, eurPorCita: 5.13 },
-    { mes: 'Ago 25', leads: 268, citas: 132, asistidas: 76,  coste: 692.5, eurPorCita: 5.24 },
-    { mes: 'Sep 25', leads: 300, citas: 186, asistidas: 108, coste: 812.7, eurPorCita: 4.37 },
+    { mes: 'Jun 25', leads: 218, citas: 105, asistidas:  62, coste: 605.4, eurPorCita: 5.77 },
+    { mes: 'Jul 25', leads: 248, citas: 132, asistidas:  78, coste: 704.8, eurPorCita: 5.34 },
+    { mes: 'Ago 25', leads: 272, citas: 156, asistidas:  92, coste: 792.5, eurPorCita: 5.08 },
+    { mes: 'Sep 25', leads: 300, citas: 180, asistidas: 108, coste: 892.4, eurPorCita: 4.96 },
   ];
 }
 
 export function buildDemoData(period = 'last_month') {
-  const totalLeads = DEMO_TARGETS.totalLeads;                       // 300
-  const leadsContactados = DEMO_TARGETS.leadsContactados;           // 73
-  const tasaAgSobreContact = DEMO_TARGETS.tasaAgendamientoSobreContactados; // 0.62
-  // 62 % de los contactados agendan cita nueva => 45 citas
-  const leadsAgendadosNuevos = Math.round(leadsContactados * tasaAgSobreContact);
-  const citasNuevas = leadsAgendadosNuevos;
-  const citasRescate = 12; // rescate de leads antiguos (no afectan al ratio anterior)
-  const citasAgendadas = citasNuevas + citasRescate;                // 57
+  const totalLeads = DEMO_TARGETS.totalLeads;                             // 300
+  const leadsContactados = DEMO_TARGETS.leadsContactados;                 // 271
+  const tasaAgSobreLeads = DEMO_TARGETS.tasaAgendamientoSobreLeads;       // 0.60
 
-  // Asistencias: 60 % de asistencia sobre agendadas.
-  const citasAsistidas = Math.round(citasAgendadas * 0.60);         // 34
-  const citasNoShow    = Math.round(citasAgendadas * 0.18);         // 10
+  // 60 % de los leads del periodo terminan agendando cita nueva => 180.
+  const leadsAgendadosNuevos = Math.round(totalLeads * tasaAgSobreLeads); // 180
+  const citasNuevas = leadsAgendadosNuevos;                               // 180
+  const citasRescate = 22;                                                // leads antiguos rescatados
+  const citasAgendadas = citasNuevas + citasRescate;                      // 202
+
+  // Asistencias: 60 % de asistencia sobre agendadas, 18 % de no-show.
+  const citasAsistidas = Math.round(citasAgendadas * 0.60);               // 121
+  const citasNoShow    = Math.round(citasAgendadas * 0.18);               // 36
   const confirmadas    = citasAsistidas + citasNoShow;
   const tasaNoShow = confirmadas > 0
     ? parseFloat(((citasNoShow / confirmadas) * 100).toFixed(1))
     : null;
 
-  const intentosPorLeadNuevo = 3.8;
-  const llamadasNuevas = Math.round(totalLeads * intentosPorLeadNuevo);
-  const llamadasReintento = 210;
-  const totalLlamadas = llamadasNuevas + llamadasReintento;
-  const leadsConReintento = 88;
+  const intentosPorLeadNuevo = 3.4;
+  const llamadasNuevas = Math.round(totalLeads * intentosPorLeadNuevo);   // 1020
+  const llamadasReintento = 285;
+  const totalLlamadas = llamadasNuevas + llamadasReintento;               // 1305
+  const leadsConReintento = 118;
   const reintentosPorLead = parseFloat((llamadasReintento / leadsConReintento).toFixed(2));
 
   const tiempoContactoMin = 3.2;
   const callMinutes = parseFloat((totalLlamadas * tiempoContactoMin).toFixed(1));
   const costeLlamadas = parseFloat((callMinutes * defaultConfig.costePorMinuto).toFixed(2));
-  const tiempoRespuestaSeg = 48;
+  const tiempoRespuestaSeg = 38;
 
   const evolucion = buildEvolucion(totalLeads, leadsContactados, citasNuevas);
-  const asistenciasRecientes = buildAsistencias(Math.min(citasAsistidas, 10), Math.min(citasNoShow, 4));
+  const asistenciasRecientes = buildAsistencias(Math.min(citasAsistidas, 12), Math.min(citasNoShow, 5));
   const campanas = buildCampanas(totalLeads, leadsContactados, citasNuevas);
   const objeciones = buildObjeciones(leadsContactados);
   const historico = buildHistorico();
 
   const agendamientoPorIntento = {
-    buckets: { 1: 18, 2: 12, 3: 8, 4: 4, 5: 2, '6+': 1 },
-    total: 45,
+    buckets: { 1: 75, 2: 48, 3: 30, 4: 15, 5: 8, '6+': 4 },
+    total: 180,
     sinLlamada: 0,
   };
 
@@ -272,7 +271,7 @@ export function buildDemoData(period = 'last_month') {
     llamadasNuevas,
     llamadasReintento,
     leadsConReintento,
-    leadsLlamados: 258,
+    leadsLlamados: 292,
     citasAgendadas,
     citasNuevas,
     citasRescate,
@@ -289,8 +288,8 @@ export function buildDemoData(period = 'last_month') {
     tiempoRespuestaSeg,
     costeLlamadas,
     callMinutes,
-    leadsDelta: 12,
-    porClinica: null, // demo tiene una sola clinica, no hay desglose general
+    leadsDelta: 18,
+    porClinica: null,
     evolucion,
     objeciones,
     segmentos: { hayPrevios: false },
