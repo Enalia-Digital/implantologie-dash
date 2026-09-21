@@ -15,6 +15,7 @@ import ObjectionsBlock from '../components/blocks/ObjectionsBlock';
 import CampaignsBlock from '../components/blocks/CampaignsBlock';
 import BillingBlock from '../components/blocks/BillingBlock';
 import TopCallsBlock from '../components/blocks/TopCallsBlock';
+import { IS_DEMO } from '../data/demoMode';
 import SegmentTabs from '../components/ui/SegmentTabs';
 import ChangelogWidget from '../components/ui/ChangelogWidget';
 import ReportsPanel from '../components/ui/ReportsPanel';
@@ -71,7 +72,7 @@ export default function Dashboard() {
     { id: 'b-objections', el: <ObjectionsBlock data={data} /> },
     { id: 'b-campaigns', el: <CampaignsBlock data={data} /> },
     { id: 'b-top-calls', el: <TopCallsBlock data={data} /> },
-    { id: 'b-billing', el: <BillingBlock data={data} config={config} /> },
+    !IS_DEMO && { id: 'b-billing', el: <BillingBlock data={data} config={config} /> },
   ].filter(Boolean);
 
   const headerRight = (
@@ -131,9 +132,11 @@ export default function Dashboard() {
             </div>
           ))}
 
-          <div style={{ marginTop: 32 }}>
-            <ReportsPanel data={data} byClinic={byClinic} />
-          </div>
+          {!IS_DEMO && (
+            <div style={{ marginTop: 32 }}>
+              <ReportsPanel data={data} byClinic={byClinic} />
+            </div>
+          )}
         </div>
       )}
       <ChangelogWidget visible={!!data && !loading} resetKey={changelogResetKey} />

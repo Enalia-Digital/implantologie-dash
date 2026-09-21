@@ -4,6 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { clinics } from '../../data/mockData';
 import usePWA from '../../hooks/usePWA';
 import useAirtableData from '../../hooks/useAirtableData';
+import { IS_DEMO } from '../../data/demoMode';
 
 const ICON = {
   dashboard: (
@@ -72,10 +73,10 @@ const ICON = {
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: ICON.dashboard },
   { id: 'calendario', label: 'Calendario', path: '/calendario', icon: ICON.calendario },
-  { id: 'calculadora', label: 'Calculadora', path: '/calculadora', icon: ICON.calculadora },
+  !IS_DEMO && { id: 'calculadora', label: 'Calculadora', path: '/calculadora', icon: ICON.calculadora },
   { id: 'alertas', label: 'Alertas', path: '/alertas', icon: ICON.alertas },
-  { id: 'reportes', label: 'Reportes', path: '/reportes', icon: ICON.reportes },
-];
+  !IS_DEMO && { id: 'reportes', label: 'Reportes', path: '/reportes', icon: ICON.reportes },
+].filter(Boolean);
 
 export default function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onClose, isPeek = false }) {
   const { activeClinic, setActiveClinic, period, setPeriod } = useClinic();

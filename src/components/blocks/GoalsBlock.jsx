@@ -1,6 +1,7 @@
 import { Card, SectionLabel } from '../ui/primitives';
 import { useClinic } from '../../context/ClinicContext';
 import { tasaAgendamiento, tasaAsistencia, comision, isNum, fmt, fmtEur } from '../../lib/calc';
+import { IS_DEMO } from '../../data/demoMode';
 
 function GoalRow({ label, nota, base, actual }) {
   const maxVal = Math.max(base, isNum(actual) ? actual : 0) * 1.2 || 1;
@@ -126,7 +127,7 @@ export default function GoalsBlock({ data }) {
 
         <BeforeAfterBlock tAgend={tAgend} tAsist={tAsist} config={config} />
 
-        {isNum(com.comision) && (
+        {!IS_DEMO && isNum(com.comision) && (
           <div
             style={{
               borderTop: '1px solid var(--border-hairline)', marginTop: 20, paddingTop: 16,
