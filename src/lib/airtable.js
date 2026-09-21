@@ -128,16 +128,21 @@ const OBJECTION_MAP = [
   { category: 'Salud / Médica', patterns: ['diabetes', 'diabetica', 'diabetico', 'salud', 'enfermedad', 'medicac', 'medicament', 'anticoagul', 'sintrom', 'quimio', 'cardiac', 'hipertens', 'embaraz', 'embarazada', 'oncolog', 'osteoporos', 'contraindicac'] },
 ];
 
-// Una llamada se considera ATENDIDA si:
-//  - su outcome NO esta en la lista de "sin contacto real" (contestador,
-//    numero equivocado, no descuelgan, buzon, ocupado), y
-//  - su duracion supera el umbral de 15 s (por debajo suele ser un ring
-//    corto o alguien que descuelga y cuelga sin hablar).
-// Un outcome "unknown" (el mayoritario del sistema) sigue el umbral de
-// duracion; los outcomes positivos como appointment_booked, qualified,
-// callback_requested, not_interested, human_transfer y las filas sin
-// outcome tambien se filtran solo por duracion.
+// Una llamada se considera ATENDIDA cuando dura al menos 15 s (por debajo
+// suele ser un ring corto o alguien que descuelga y cuelga sin hablar).
+// Usada por metricas generales de llamadas: llamadasAtendidas, topCalls,
+// objeciones, evolucion, etc.
 const MIN_CONTACT_SECONDS = 15;
+function fueAtendida(call) {
+  return Number(call.duration_seconds) >= MIN_CONTACT_SECONDS;
+}
+
+// Regla mas estricta usada SOLO para "Leads Contactados" y el ratio
+// "Agendamiento / Contactados": ademas de los 15 s, descarta llamadas cuyo
+// outcome indica que no hubo conversacion real (contestador, numero
+// equivocado, no descuelgan, buzon, ocupado). Todo lo demas (unknown,
+// qualified, appointment_booked, callback_requested, not_interested,
+// human_transfer y las filas sin outcome) sigue el umbral de duracion.
 const NO_CONTACT_OUTCOMES = new Set([
   'no_answer',
   'wrong_number',
@@ -145,7 +150,7 @@ const NO_CONTACT_OUTCOMES = new Set([
   'busy',
   'failed',
 ]);
-function fueAtendida(call) {
+function esContactoRealLead(call) {
   const outcome = String(call.call_outcome || '').trim().toLowerCase();
   if (NO_CONTACT_OUTCOMES.has(outcome)) return false;
   return Number(call.duration_seconds) >= MIN_CONTACT_SECONDS;
@@ -378,17 +383,23 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   }
 
   // Distinguimos intento de llamada (marcamos) de contacto real (descuelgan).
+  // contactedLeadIds usa la regla general (>=15 s) — sirve para campanas,
+  // leadsRecientes, evolucion, etc. sin cambiar su semantica historica.
   const dialedLeadIds = new Set();
   const contactedLeadIds = new Set();
+  // Set aparte con la regla estricta (excluye contestador/wrong_number/etc.)
+  // exclusivamente para el KPI "Leads Contactados" y su ratio derivado.
+  const contactadosEstrictoLeadIds = new Set();
   periodCalls.forEach((c) => {
     if (!c.lead_id) return;
     const lid = String(c.lead_id).trim();
     dialedLeadIds.add(lid);
     if (fueAtendida(c)) contactedLeadIds.add(lid);
+    if (esContactoRealLead(c)) contactadosEstrictoLeadIds.add(lid);
   });
 
   // Un lead cuenta como CONTACTADO si tiene al menos una llamada valida del
-  // periodo (regla fueAtendida) O si tiene una cita del periodo. Esto ultimo
+  // periodo (regla estricta) O si tiene una cita del periodo. Esto ultimo
   // cubre los casos manuales: cuando la asistente agenda directamente en
   // Airtable sin registrar la llamada, el lead SI hubo contacto humano y no
   // debe quedarse fuera del denominador de "agendamiento / contactados".
@@ -399,8 +410,14 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   const totalLeads = periodLeads.length;
   const leadsContactados = periodLeads.filter((l) => {
     const lid = String(l.lead_id).trim();
-    return contactedLeadIds.has(lid) || periodApptLeadIds.has(lid);
+    return contactadosEstrictoLeadIds.has(lid) || periodApptLeadIds.has(lid);
   }).length;
+  // Leads del periodo con al menos una cita nueva. Se usa como numerador del
+  // ratio "Agendamiento / Contactados" para garantizar que nunca supere el
+  // 100 % (un lead puede tener varias citas; no debe contarse mas de una vez).
+  const leadsAgendadosNuevos = periodLeads.filter((l) =>
+    periodApptLeadIds.has(String(l.lead_id).trim())
+  ).length;
   const leadsLlamados = periodLeads.filter((l) =>
     dialedLeadIds.has(String(l.lead_id).trim())
   ).length;
@@ -869,6 +886,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     citasAgendadas,
     citasNuevas,
     citasRescate,
+    leadsAgendadosNuevos,
     citasAsistidas,
     citasNoShow,
     tasaNoShow,
