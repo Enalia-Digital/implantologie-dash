@@ -156,26 +156,36 @@ function esContactoRealLead(call) {
   return Number(call.duration_seconds) >= MIN_CONTACT_SECONDS;
 }
 
-// Asistencia: el select attendance_status en Airtable usa "attended".
+// Estado de asistencia. En esta base el select "verdad" es appointment_status
+// (no attendance_status, que quedo como columna auxiliar). Aceptamos cualquier
+// valor que empiece por "attend" (attended, attendance, Attended...) y como
+// fallback el checkbox showed_up = true por si solo se marco esa columna.
+// La escritura desde este dashboard siempre manda "attended".
+function estadoAsistencia(appt) {
+  const st = String(appt.appointment_status || appt.attendance_status || '').trim().toLowerCase();
+  return st;
+}
 function asistioACita(appt) {
-  const st = String(appt.attendance_status || '').trim().toLowerCase();
-  return st === 'attended';
+  const st = estadoAsistencia(appt);
+  if (st.startsWith('attend') || st === 'asistio' || st === 'asistido') return true;
+  if (appt.showed_up === true || appt.showed_up === 1 || appt.showed_up === 'true') return true;
+  return false;
 }
 
 // Ausencia registrada explicitamente. Vacio no cuenta como no-show,
 // va al bucket de "pendiente de confirmar".
 function fueNoShow(appt) {
-  return String(appt.attendance_status || '').trim().toLowerCase() === 'no_show';
+  const st = estadoAsistencia(appt);
+  return st === 'no_show' || st === 'no-show' || st === 'noshow';
 }
 
-// Cita cuya fecha ya paso y aun no tiene attendance_status definitivo.
-// Sirve como "hay que confirmar en el CRM".
+// Cita cuya fecha ya paso y aun no tiene estado definitivo. Sirve como
+// "hay que confirmar en el CRM".
 function pendienteConfirmar(appt, now) {
   const t = appt.appointment_start ? new Date(appt.appointment_start).getTime() : NaN;
   if (!Number.isFinite(t)) return false;
   if (t >= now) return false;
-  const st = String(appt.attendance_status || '').trim().toLowerCase();
-  return st !== 'attended' && st !== 'no_show';
+  return !asistioACita(appt) && !fueNoShow(appt);
 }
 
 // Horario de llamadas del sistema (Europa/Madrid). Fuera de esta ventana no se

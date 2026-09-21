@@ -4,6 +4,10 @@
 
 const BASE_ID = 'appjepGJjnf1ID4Uo';
 const APPT_TABLE = 'tblPqgB4or5EfWpYe';
+// La verdad esta en appointment_status (fld3q3B11hxhG8nv6). attendance_status
+// (fldx1V9Kh8xWaViJQ) quedo como columna auxiliar. Actualizamos las dos para
+// mantener retrocompatibilidad con integraciones que aun lean la vieja.
+const APPT_STATUS_FIELD = 'fld3q3B11hxhG8nv6';
 const ATTENDANCE_FIELD = 'fldx1V9Kh8xWaViJQ';
 
 // El webhook n8n espera GET con query params — devuelve 404 a POST.
@@ -58,7 +62,10 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        fields: { [ATTENDANCE_FIELD]: fieldValue },
+        fields: {
+          [APPT_STATUS_FIELD]: fieldValue,
+          [ATTENDANCE_FIELD]: fieldValue,
+        },
       }),
     });
 
