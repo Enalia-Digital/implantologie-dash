@@ -156,10 +156,13 @@ function esContactoRealLead(call) {
   return Number(call.duration_seconds) >= MIN_CONTACT_SECONDS;
 }
 
-// Asistencia: el select attendance_status en Airtable usa "attended".
+// Asistencia: el select attendance_status en Airtable usa "attended" como
+// valor canonico. Aceptamos tambien "attendance" al LEER por si quedan
+// filas antiguas con ese valor legacy en la base (aunque la escritura
+// desde este dashboard siempre manda "attended").
 function asistioACita(appt) {
   const st = String(appt.attendance_status || '').trim().toLowerCase();
-  return st === 'attended';
+  return st === 'attended' || st === 'attendance';
 }
 
 // Ausencia registrada explicitamente. Vacio no cuenta como no-show,
@@ -175,7 +178,7 @@ function pendienteConfirmar(appt, now) {
   if (!Number.isFinite(t)) return false;
   if (t >= now) return false;
   const st = String(appt.attendance_status || '').trim().toLowerCase();
-  return st !== 'attended' && st !== 'no_show';
+  return st !== 'attended' && st !== 'attendance' && st !== 'no_show';
 }
 
 // Horario de llamadas del sistema (Europa/Madrid). Fuera de esta ventana no se
