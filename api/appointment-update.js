@@ -1,5 +1,5 @@
 // PATCH Airtable appointments.attendance_status desde el dashboard, y
-// reenvia el evento a n8n. Solo acepta 'attendance' | 'no_show' | 'clear'
+// reenvia el evento a n8n. Solo acepta 'attended' | 'no_show' | 'clear'
 // para no ensuciar la tabla desde el UI.
 
 const BASE_ID = 'appjepGJjnf1ID4Uo';
@@ -9,11 +9,8 @@ const ATTENDANCE_FIELD = 'fldx1V9Kh8xWaViJQ';
 // El webhook n8n espera GET con query params — devuelve 404 a POST.
 const N8N_WEBHOOK = 'https://n8n-enalia-n8n.gjammw.easypanel.host/webhook/confirmar-asistencia';
 
-// Valores del select attendance_status en Airtable. "attended" es el nombre
-// canonico; aceptamos "attendance" tambien como alias por compatibilidad
-// con integraciones anteriores.
-const ALLOWED = new Set(['attended', 'attendance', 'no_show', 'clear']);
-const CANONICAL = { attendance: 'attended' };
+// Valores del select attendance_status en Airtable.
+const ALLOWED = new Set(['attended', 'no_show', 'clear']);
 
 function buildWebhookUrl(payload) {
   const qs = new URLSearchParams();
@@ -46,11 +43,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'recordId invalido' });
   }
   if (!ALLOWED.has(status)) {
-    return res.status(400).json({ error: 'status debe ser attendance | no_show | clear' });
+    return res.status(400).json({ error: 'status debe ser attended | no_show | clear' });
   }
 
-  const canonical = CANONICAL[status] || status;
-  const fieldValue = canonical === 'clear' ? null : canonical;
+  const fieldValue = status === 'clear' ? null : status;
 
   try {
     // 1) Airtable PATCH
@@ -68,7 +64,13 @@ export default async function handler(req, res) {
 
     if (!airtableRes.ok) {
       const txt = await airtableRes.text();
-      return res.status(airtableRes.status).json({ error: `airtable: ${txt}` });
+      let friendly = `Airtable ${airtableRes.status}`;
+      if (/INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND|NOT_AUTHORIZED/i.test(txt)) {
+        friendly = 'El token de Airtable no tiene permiso de escritura. Añade el scope data.records:write al PAT en airtable.com/create/tokens y verifica que la base esta en Access.';
+      } else if (/INVALID_MULTIPLE_CHOICE_OPTIONS|Cannot parse value/i.test(txt)) {
+        friendly = 'Airtable rechazo el valor. Revisa que las opciones "attended" y "no_show" existen en el select attendance_status.';
+      }
+      return res.status(airtableRes.status).json({ error: friendly, detail: txt });
     }
     const json = await airtableRes.json();
 
@@ -91,7 +93,7 @@ export default async function handler(req, res) {
         appointmentStart: meta.appointmentStart || '',
         phone: meta.phone || '',
         status,
-        asistio: status === 'attendance',
+        asistio: status === 'attended',
         noShow: status === 'no_show',
         cleared: status === 'clear',
         confirmedAt: new Date().toISOString(),
