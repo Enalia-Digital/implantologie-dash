@@ -1,6 +1,7 @@
 import { useClinic, PERIODS } from '../../context/ClinicContext';
 import { clinicHeader } from '../../data/mockData';
 import { describePeriod } from '../../lib/airtable';
+import { IS_DEMO } from '../../data/demoMode';
 
 export default function Header({ onMenu, right }) {
   const { activeClinic, period } = useClinic();
@@ -54,9 +55,30 @@ export default function Header({ onMenu, right }) {
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
             }}
           >
             {clinicHeader[activeClinic]}
+            {IS_DEMO && (
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: '0.14em',
+                  padding: '3px 7px',
+                  borderRadius: 6,
+                  background: 'rgba(191,0,255,0.14)',
+                  color: 'var(--accent)',
+                  border: '1px solid var(--accent-border)',
+                  textTransform: 'uppercase',
+                  lineHeight: 1,
+                }}
+              >
+                Demo
+              </span>
+            )}
           </span>
           {info.rango && (
             <span
