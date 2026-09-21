@@ -1,5 +1,5 @@
 // PATCH Airtable appointments.attendance_status desde el dashboard, y
-// reenvia el evento a n8n. Solo acepta 'attendance' | 'no_show' | 'clear'
+// reenvia el evento a n8n. Solo acepta 'attended' | 'no_show' | 'clear'
 // para no ensuciar la tabla desde el UI.
 
 const BASE_ID = 'appjepGJjnf1ID4Uo';
@@ -9,11 +9,8 @@ const ATTENDANCE_FIELD = 'fldx1V9Kh8xWaViJQ';
 // El webhook n8n espera GET con query params — devuelve 404 a POST.
 const N8N_WEBHOOK = 'https://n8n-enalia-n8n.gjammw.easypanel.host/webhook/confirmar-asistencia';
 
-// Valores del select attendance_status en Airtable. "attended" es el nombre
-// canonico; aceptamos "attendance" tambien como alias por compatibilidad
-// con integraciones anteriores.
-const ALLOWED = new Set(['attended', 'attendance', 'no_show', 'clear']);
-const CANONICAL = { attendance: 'attended' };
+// Valores del select attendance_status en Airtable.
+const ALLOWED = new Set(['attended', 'no_show', 'clear']);
 
 function buildWebhookUrl(payload) {
   const qs = new URLSearchParams();
@@ -49,8 +46,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'status debe ser attended | no_show | clear' });
   }
 
-  const canonical = CANONICAL[status] || status;
-  const fieldValue = canonical === 'clear' ? null : canonical;
+  const fieldValue = status === 'clear' ? null : status;
 
   try {
     // 1) Airtable PATCH
@@ -96,10 +92,10 @@ export default async function handler(req, res) {
         clinicRaw: meta.clinicRaw || '',
         appointmentStart: meta.appointmentStart || '',
         phone: meta.phone || '',
-        status: canonical,
-        asistio: canonical === 'attended',
-        noShow: canonical === 'no_show',
-        cleared: canonical === 'clear',
+        status,
+        asistio: status === 'attended',
+        noShow: status === 'no_show',
+        cleared: status === 'clear',
         confirmedAt: new Date().toISOString(),
       };
 
