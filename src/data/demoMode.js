@@ -1,9 +1,12 @@
-// Modo DEMO. Se activa desde el build de Vercel con `VITE_DEMO_MODE=true`.
-// Cuando esta activo, el dashboard no toca Airtable y muestra la clinica IOI
-// Aurora con datos ficticios, exclusivamente para reuniones y presentaciones.
-// El dashboard real de Enalia queda intacto siempre que la variable no este
-// declarada.
-export const IS_DEMO = String(import.meta.env.VITE_DEMO_MODE || '').toLowerCase() === 'true';
+// Modo DEMO. Esta branch (claude/vigilant-dirac-bd2qlg) es EXCLUSIVAMENTE
+// para el proyecto de Vercel "dashboard demo IOI - Enalia".
+//
+// El dashboard real de Enalia usa la branch `main`, donde IS_DEMO no existe
+// (este archivo solo vive aqui). NO MERGEAR ESTA BRANCH A MAIN.
+//
+// Cuando IS_DEMO === true, el dashboard no toca Airtable y renderiza la
+// clinica IOI Aurora con datos ficticios.
+export const IS_DEMO = true;
 
 // Cifras troncales del demo. El resto de metricas se derivan de aqui para que
 // todo (funnel, KPIs, campanas, evolucion, historico) cuadre entre si.
