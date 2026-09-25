@@ -726,7 +726,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
       llamado,
       contactado,
       agendado,
-      estado: agendado ? 'Agendado' : contactado ? 'Contactado' : llamado ? 'Sin descolgar' : 'Sin llamar',
+      estado: agendado ? 'Agendado' : contactado ? 'Contactado' : 'Sin respuesta',
     });
   });
   const campanas = Object.values(campMap)

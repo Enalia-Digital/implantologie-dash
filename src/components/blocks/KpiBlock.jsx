@@ -73,9 +73,13 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
     tasaNoShow: data.tasaNoShow,
     totalLlamadas: data.totalLlamadas,
     llamadasNuevas: data.llamadasNuevas != null ? data.llamadasNuevas : data.totalLlamadas,
-    intentosPorLead: data.intentosPorLeadNuevo != null
-      ? data.intentosPorLeadNuevo
-      : (data.totalLeads > 0 ? data.totalLlamadas / data.totalLeads : null),
+    // "Intentos para agendar": cuantas llamadas de media hacen falta para
+    // cerrar una cita. Usa TODAS las llamadas del periodo (incluye reintentos
+    // y rescates, que tambien empujan al agendamiento) divididas entre leads
+    // distintos con cita nueva del periodo.
+    intentosPorLead: leadsAgendadosNuevos > 0
+      ? data.totalLlamadas / leadsAgendadosNuevos
+      : null,
     tasaAgendamiento: data.totalLeads > 0 ? (leadsAgendadosNuevos / data.totalLeads) * 100 : null,
     tasaReunion: data.leadsContactados > 0 ? (leadsAgendadosNuevos / data.leadsContactados) * 100 : null,
     tiempoRespuestaSeg: data.tiempoRespuestaSeg,
@@ -146,8 +150,8 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
           <CountUpValue value={m.llamadasNuevas} deps={tabDeps} />
         </KpiCard>
         <KpiCard
-          label="Intentos / Lead"
-          sub={<span style={{ color: 'var(--text-muted)' }}>llamadas por lead nuevo</span>}
+          label="Intentos para agendar"
+          sub={<span style={{ color: 'var(--text-muted)' }}>llamadas medias por cita conseguida</span>}
         >
           <CountUpValue value={m.intentosPorLead} decimals={1} deps={tabDeps} />
         </KpiCard>
