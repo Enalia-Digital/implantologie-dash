@@ -47,9 +47,13 @@ function KpiCard({ label, children, sub, accent }) {
 }
 
 export default function KpiBlock({ data, deps, vista = 'activacion' }) {
-  const { period } = useClinic();
+  const { period, activeClinic } = useClinic();
   const periodoTxt = PERIODO_LABEL[period] || '';
   const seg = data.segmentos;
+  // Solo enseñamos "Total llamadas" en vista General: las llamadas sin
+  // lead_id (que son la mayoría) no se pueden atribuir a una clínica, así
+  // que la suma por clínica no cuadraría con el total.
+  const showTotalLlamadas = activeClinic === 'general';
 
   // Universo consistente: los ratios "Agendamiento / Contactados" y
   // "Agendamiento / Leads" usan LEADS con cita nueva (no numero de citas)
@@ -147,12 +151,14 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
         >
           <CountUpValue value={m.citasNoShow} color={m.citasNoShow > 0 ? 'var(--red)' : 'var(--text-muted)'} deps={tabDeps} />
         </KpiCard>
-        <KpiCard
-          label="Total llamadas"
-          sub={<span style={{ color: 'var(--text-muted)' }}>{periodoTxt}</span>}
-        >
-          <CountUpValue value={m.totalLlamadasFacturables} deps={tabDeps} />
-        </KpiCard>
+        {showTotalLlamadas && (
+          <KpiCard
+            label="Total llamadas"
+            sub={<span style={{ color: 'var(--text-muted)' }}>{periodoTxt}</span>}
+          >
+            <CountUpValue value={m.totalLlamadasFacturables} deps={tabDeps} />
+          </KpiCard>
+        )}
         <KpiCard
           label="Intentos para agendar"
           sub={<span style={{ color: 'var(--text-muted)' }}>llamadas a leads del periodo ÷ leads con cita nueva</span>}
