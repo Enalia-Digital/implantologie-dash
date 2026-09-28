@@ -150,21 +150,14 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
           <CountUpValue value={m.citasNoShow} color={m.citasNoShow > 0 ? 'var(--red)' : 'var(--text-muted)'} deps={tabDeps} />
         </KpiCard>
         <KpiCard
-          label="Llamadas a leads entrantes"
-          sub={
-            <span style={{ color: 'var(--text-muted)' }}>
-              {periodoTxt}
-              {isNum(m.totalLlamadasFacturables) && m.totalLlamadasFacturables !== m.llamadasNuevas && (
-                <> · <b style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{fmt(m.totalLlamadasFacturables)}</b> llamadas totales</>
-              )}
-            </span>
-          }
+          label="Total llamadas"
+          sub={<span style={{ color: 'var(--text-muted)' }}>{periodoTxt} · centralita</span>}
         >
-          <CountUpValue value={m.llamadasNuevas} deps={tabDeps} />
+          <CountUpValue value={m.totalLlamadasFacturables} deps={tabDeps} />
         </KpiCard>
         <KpiCard
           label="Intentos para agendar"
-          sub={<span style={{ color: 'var(--text-muted)' }}>llamadas medias por cita conseguida</span>}
+          sub={<span style={{ color: 'var(--text-muted)' }}>total llamadas del periodo ÷ leads con cita nueva</span>}
         >
           <CountUpValue value={m.intentosPorLead} decimals={1} deps={tabDeps} />
         </KpiCard>

@@ -114,12 +114,12 @@ function Row({ item, index }) {
 export default function AttendanceBlock({ data }) {
   const { period } = useClinic();
   const [tab, setTab] = useState('all'); // all | attended | no_show
-  // Preferencia local: si el usuario ocultó el detalle, la ocultamos por defecto.
+  // Preferencia local: oculto por defecto; el usuario lo despliega si quiere.
   const [showDetail, setShowDetail] = useState(() => {
     try {
       const v = localStorage.getItem('attendance:showDetail');
-      return v === null ? true : v === '1';
-    } catch { return true; }
+      return v === '1';
+    } catch { return false; }
   });
   const toggleDetail = () => {
     setShowDetail((prev) => {
