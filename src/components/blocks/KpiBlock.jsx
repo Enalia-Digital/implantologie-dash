@@ -149,7 +149,7 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
         </KpiCard>
         <KpiCard
           label="Total llamadas"
-          sub={<span style={{ color: 'var(--text-muted)' }}>{periodoTxt} · centralita</span>}
+          sub={<span style={{ color: 'var(--text-muted)' }}>{periodoTxt}</span>}
         >
           <CountUpValue value={m.totalLlamadasFacturables} deps={tabDeps} />
         </KpiCard>
