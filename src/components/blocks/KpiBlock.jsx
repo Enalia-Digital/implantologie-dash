@@ -72,19 +72,17 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
     citasNoShow: data.citasNoShow,
     tasaNoShow: data.tasaNoShow,
     totalLlamadas: data.totalLlamadas,
-    // Total de llamadas de la centralita en el periodo (incluye las que no
-    // tienen lead_id: webcalls, salientes anonimas, etc.). Es lo que factura
-    // la centralita.
+    // Total facturable del periodo (todo lo que suena la centralita, incluye
+    // webcalls sin lead_id). Se muestra tal cual en el KPI "Total llamadas".
     totalLlamadasFacturables: isNum(data.totalLlamadasFacturables)
       ? data.totalLlamadasFacturables
       : data.totalLlamadas,
     llamadasNuevas: data.llamadasNuevas != null ? data.llamadasNuevas : data.totalLlamadas,
-    // "Intentos para agendar": cuantas llamadas de media hacen falta para
-    // cerrar una cita. Usamos el total facturable del periodo (todas las
-    // llamadas, con o sin lead_id) porque es el esfuerzo real. Divide entre
-    // leads distintos con cita nueva del periodo.
+    // "Intentos para agendar": llamadas a LEADS (solo las que tienen lead_id,
+    // no webcalls ni tests) del periodo entre leads distintos con cita nueva.
+    // Refleja el esfuerzo real de la maquina de llamada por cada cita cerrada.
     intentosPorLead: leadsAgendadosNuevos > 0
-      ? (isNum(data.totalLlamadasFacturables) ? data.totalLlamadasFacturables : data.totalLlamadas) / leadsAgendadosNuevos
+      ? data.totalLlamadas / leadsAgendadosNuevos
       : null,
     tasaAgendamiento: data.totalLeads > 0 ? (leadsAgendadosNuevos / data.totalLeads) * 100 : null,
     tasaReunion: data.leadsContactados > 0 ? (leadsAgendadosNuevos / data.leadsContactados) * 100 : null,
@@ -157,7 +155,7 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
         </KpiCard>
         <KpiCard
           label="Intentos para agendar"
-          sub={<span style={{ color: 'var(--text-muted)' }}>total llamadas del periodo ÷ leads con cita nueva</span>}
+          sub={<span style={{ color: 'var(--text-muted)' }}>llamadas a leads del periodo ÷ leads con cita nueva</span>}
         >
           <CountUpValue value={m.intentosPorLead} decimals={1} deps={tabDeps} />
         </KpiCard>
