@@ -607,6 +607,11 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   const costSeconds = billableCalls.reduce((s, c) => s + (Number(c.duration_seconds) || 0), 0);
   const callMinutes = parseFloat((costSeconds / 60).toFixed(1));
   const costeLlamadas = parseFloat(((costSeconds / 60) * defaultConfig.costePorMinuto).toFixed(2));
+  // Total de llamadas facturables del periodo (incluye webcalls sin lead_id).
+  // Es el numero que ve el cliente en la factura de la centralita. periodCalls
+  // solo cuenta las que tienen lead_id, por eso "Llamadas a leads entrantes"
+  // puede salir mucho menor que este total.
+  const totalLlamadasFacturables = billableCalls.length;
   const tiempoContactoMin = billableCalls.length > 0
     ? parseFloat(((costSeconds / 60) / billableCalls.length).toFixed(1))
     : 0;
@@ -897,6 +902,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     citasNuevas,
     citasRescate,
     leadsAgendadosNuevos,
+    totalLlamadasFacturables,
     citasAsistidas,
     citasNoShow,
     tasaNoShow,

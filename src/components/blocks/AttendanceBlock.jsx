@@ -114,6 +114,20 @@ function Row({ item, index }) {
 export default function AttendanceBlock({ data }) {
   const { period } = useClinic();
   const [tab, setTab] = useState('all'); // all | attended | no_show
+  // Preferencia local: si el usuario ocultó el detalle, la ocultamos por defecto.
+  const [showDetail, setShowDetail] = useState(() => {
+    try {
+      const v = localStorage.getItem('attendance:showDetail');
+      return v === null ? true : v === '1';
+    } catch { return true; }
+  });
+  const toggleDetail = () => {
+    setShowDetail((prev) => {
+      const next = !prev;
+      try { localStorage.setItem('attendance:showDetail', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  };
 
   const items = data?.asistenciasRecientes || [];
   const attended = items.filter((i) => i.estado === 'attended');
@@ -204,38 +218,53 @@ export default function AttendanceBlock({ data }) {
           </div>
         </div>
 
-        {/* Tabs de filtro */}
+        {/* Toggle mostrar/ocultar detalle */}
         {items.length > 0 && (
           <div style={{
-            display: 'flex', gap: 6, marginBottom: 14,
-            padding: 4,
-            background: 'var(--bg-hover)',
-            borderRadius: 10,
-            width: 'fit-content',
-          }} className="attendance-tabs">
-            {[
-              { id: 'all', label: `Todas (${items.length})` },
-              { id: 'attended', label: `Asistieron (${attended.length})` },
-              { id: 'no_show', label: `No acudieron (${noShow.length})` },
-            ].map((t) => {
-              const active = tab === t.id;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
-                  className="attendance-tab-btn"
-                  data-active={active}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            gap: 12, marginBottom: showDetail ? 14 : 0,
+          }}>
+            {showDetail ? (
+              <div style={{
+                display: 'flex', gap: 6,
+                padding: 4,
+                background: 'var(--bg-hover)',
+                borderRadius: 10,
+                width: 'fit-content',
+              }} className="attendance-tabs">
+                {[
+                  { id: 'all', label: `Todas (${items.length})` },
+                  { id: 'attended', label: `Asistieron (${attended.length})` },
+                  { id: 'no_show', label: `No acudieron (${noShow.length})` },
+                ].map((t) => {
+                  const active = tab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setTab(t.id)}
+                      className="attendance-tab-btn"
+                      data-active={active}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : <span />}
+            <button
+              type="button"
+              onClick={toggleDetail}
+              className="attendance-toggle-btn"
+              aria-expanded={showDetail}
+            >
+              {showDetail ? 'Ocultar detalle' : `Mostrar detalle (${items.length})`}
+            </button>
           </div>
         )}
 
         {/* Lista */}
-        {items.length === 0 && (
+        {items.length === 0 && showDetail && (
           <div style={{
             padding: '32px 20px', textAlign: 'center',
             border: '1px dashed var(--border-hairline)', borderRadius: 12,
@@ -249,20 +278,24 @@ export default function AttendanceBlock({ data }) {
           </div>
         )}
 
-        <AnimatePresence mode="popLayout">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {filtered.slice(0, 12).map((item, i) => (
-              <Row key={item.recordId} item={item} index={i} />
-            ))}
-          </div>
-        </AnimatePresence>
+        {showDetail && (
+          <>
+            <AnimatePresence mode="popLayout">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {filtered.slice(0, 12).map((item, i) => (
+                  <Row key={item.recordId} item={item} index={i} />
+                ))}
+              </div>
+            </AnimatePresence>
 
-        {filtered.length > 12 && (
-          <div style={{
-            fontSize: 11, color: 'var(--text-muted)', marginTop: 10, textAlign: 'center',
-          }}>
-            + {filtered.length - 12} más
-          </div>
+            {filtered.length > 12 && (
+              <div style={{
+                fontSize: 11, color: 'var(--text-muted)', marginTop: 10, textAlign: 'center',
+              }}>
+                + {filtered.length - 12} más
+              </div>
+            )}
+          </>
         )}
       </Card>
 
@@ -285,6 +318,20 @@ export default function AttendanceBlock({ data }) {
           background: var(--bg-card);
           color: var(--text-primary);
           box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .attendance-toggle-btn {
+          padding: 6px 12px;
+          font-size: 12px; font-weight: 500;
+          border-radius: 8px;
+          border: 1px solid var(--border-hairline);
+          background: transparent;
+          color: var(--text-secondary);
+          cursor: pointer; font-family: inherit; white-space: nowrap;
+          transition: background 160ms cubic-bezier(0.23,1,0.32,1),
+                      color 160ms cubic-bezier(0.23,1,0.32,1);
+        }
+        .attendance-toggle-btn:hover {
+          background: var(--bg-hover); color: var(--text-primary);
         }
         @media (max-width: 680px) {
           .attendance-hero {
