@@ -594,13 +594,13 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   };
 
   // Minutos y coste facturables: cuenta TODAS las llamadas de la centralita
-  // del periodo — nuevas, previas, webcalls (sin lead_id), demo internas.
-  // La centralita cobra por cada minuto sonado, no filtramos por tipo.
-  // El unico filtro es fecha del periodo y clinica si esta seleccionada
-  // (las webcalls sin clinica solo pueden contar en vista general).
+  // del periodo (nuevas, previas, salientes), EXCEPTO las demo internas y
+  // webcalls con telefono de prueba, que se descartan tanto en el conteo
+  // como en el coste.
   const billableCalls = allCallsRaw.filter((c) => {
     const date = c.started_at || c._createdTime;
     if (!inRange(date, range)) return false;
+    if (isDemoRecord(c)) return false;
     if (clinicId === 'general') return true;
     return callLeadClinic(c) === clinicId; // requiere lead_id => webcalls quedan fuera
   });
