@@ -11,6 +11,7 @@ export const changelog = [
       {
         items: [
           'Ahora sabemos en qué llamada exacta se agenda cada paciente: medimos el intento justo en el que convierte, para ver cuántas llamadas hacen falta de media y afinar el seguimiento.',
+          'Mensaje de cierre en el último intento de llamada: una última oportunidad para que el lead nos devuelva la llamada y recuperarlo antes de darlo por perdido.',
         ],
       },
     ],
