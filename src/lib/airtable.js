@@ -1,4 +1,4 @@
-import { defaultConfig, fechaInicioEnalia, leadsPreviosIds } from '../data/config';
+import { defaultConfig, fechaInicioEnalia, fechaInicioRepesca, leadsPreviosIds } from '../data/config';
 
 const CLINIC_MAP = {
   triana: 'triana',
@@ -891,6 +891,33 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   });
   const serieReintentos = _rBuckets;
 
+  // --- Repesca: citas agendadas desde callback (call_tasks) ---
+  // Corte FIJO desde fechaInicioRepesca (no depende del periodo del dashboard).
+  // Un task cuenta si su estado es 'agendado' y su updated_at (ultima edicion)
+  // es posterior al corte. Mide cuantas citas sacamos reactivando leads que no
+  // agendaron a la primera, y en cuantos intentos de media.
+  const repescaCorteMs = fechaInicioRepesca ? new Date(fechaInicioRepesca).getTime() : 0;
+  const repescaTasks = tasks.filter((t) => {
+    if (String(t.task_status || '').trim().toLowerCase() !== 'agendado') return false;
+    const upd = t.updated_at ? new Date(t.updated_at).getTime() : NaN;
+    if (!Number.isFinite(upd) || upd < repescaCorteMs) return false;
+    if (isDemoPhone(t.phone)) return false;
+    const lead = t.lead_id ? leadMap.get(String(t.lead_id).trim()) : null;
+    if (lead && isDemoPhone(lead.phone)) return false;
+    if (clinicId === 'general') return true;
+    const tClinic = normalizeClinic(t.clinic_id)
+      || (lead ? normalizeClinic(lead.preferred_clinic_id) : null);
+    return tClinic === clinicId;
+  });
+  const repescaAgendados = repescaTasks.length;
+  const repescaIntentosArr = repescaTasks
+    .map((t) => Number(t.attempt_count))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  const repescaLlamadasTotales = repescaIntentosArr.reduce((s, n) => s + n, 0);
+  const repescaIntentosMedios = repescaIntentosArr.length > 0
+    ? parseFloat((repescaLlamadasTotales / repescaIntentosArr.length).toFixed(1))
+    : null;
+
   const historico = buildHistorico(leads, calls, appointments, clinicId, leadMap, demoLeadIds);
 
   return {
@@ -903,6 +930,9 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     citasRescate,
     leadsAgendadosNuevos,
     totalLlamadasFacturables,
+    repescaAgendados,
+    repescaIntentosMedios,
+    repescaLlamadasTotales,
     citasAsistidas,
     citasNoShow,
     tasaNoShow,

@@ -3,6 +3,19 @@
 // el badge "1" y la animación de caída para todos los usuarios que aún no la vean.
 export const changelog = [
   {
+    id: '2026-10-v2',
+    fecha: 'Octubre 2026',
+    titulo: 'v2 — Medición por intento de llamada',
+    tag: 'Nuevo',
+    sections: [
+      {
+        items: [
+          'Ahora sabemos en qué llamada exacta se agenda cada paciente: medimos el intento justo en el que convierte, para ver cuántas llamadas hacen falta de media y afinar el seguimiento.',
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-09-v1',
     fecha: 'Septiembre 2026',
     titulo: 'v1 — Implementación del sistema',
