@@ -62,6 +62,8 @@ const FIELDS = {
     'fldQBiLSOV66Aris5', // max_attempts
     'fldif2AITDnZde44I', // callback_reason
     'fld8GG7VJPVwnCypC', // created_at
+    'fldLZUgY2c8Mh01li', // updated_at (ultima edicion)
+    'fldX871g9RNJAWcXt', // completed_at
   ],
 };
 
@@ -162,6 +164,8 @@ function fieldMap(tableName) {
       fldQBiLSOV66Aris5: 'max_attempts',
       fldif2AITDnZde44I: 'callback_reason',
       fld8GG7VJPVwnCypC: 'created_at',
+      fldLZUgY2c8Mh01li: 'updated_at',
+      fldX871g9RNJAWcXt: 'completed_at',
     },
   };
   return maps[tableName];

@@ -49,6 +49,13 @@ function Chip({ children, tone = 'accent' }) {
 }
 
 function ChangelogContent({ onClose }) {
+  // La release más reciente (índice 0) abierta; el resto cerradas y clicables.
+  const [openIds, setOpenIds] = useState(() => new Set(changelog[0] ? [changelog[0].id] : []));
+  const toggle = (id) => setOpenIds((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   return (
     <div style={{ padding: '24px 24px 8px', position: 'relative' }}>
       <button
@@ -126,15 +133,34 @@ function ChangelogContent({ onClose }) {
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <button
+                type="button"
+                onClick={() => toggle(r.id)}
+                aria-expanded={openIds.has(r.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                  background: 'transparent', border: 'none', padding: 0, margin: 0,
+                  cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                }}
+              >
                 <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.005em' }}>
                   {r.titulo}
                 </span>
                 {r.tag && <Chip>{r.tag}</Chip>}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>{r.fecha}</div>
+                <svg
+                  width="12" height="12" viewBox="0 0 12 12" fill="none"
+                  style={{
+                    marginLeft: 'auto', flexShrink: 0, color: 'var(--text-muted)',
+                    transform: openIds.has(r.id) ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 220ms cubic-bezier(0.23,1,0.32,1)',
+                  }}
+                >
+                  <path d="M3 4.5l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 12px' }}>{r.fecha}</div>
 
-              {r.sections?.map((section, si) => (
+              {!openIds.has(r.id) ? null : r.sections?.map((section, si) => (
                 <div key={si} style={{ marginBottom: si === r.sections.length - 1 ? 0 : 14 }}>
                   {section.semana && (
                     <div style={{
@@ -171,7 +197,7 @@ function ChangelogContent({ onClose }) {
                 </div>
               ))}
 
-              {r.items && !r.sections && (
+              {openIds.has(r.id) && r.items && !r.sections && (
                 <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {r.items.map((item, j) => (
                     <li key={j} style={{
