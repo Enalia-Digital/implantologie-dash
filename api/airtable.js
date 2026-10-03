@@ -50,6 +50,7 @@ const FIELDS = {
     'fldOcyUlA41RqNgUn', // showed_up
     'fldiY9gt8q0jWTegZ', // created_at
     'fldHANxTYxcrjdjY8', // phone
+    'flds9D7xefXHJVWgB', // UID (cal.com booking uid)
   ],
   call_tasks: [
     'fldGbpq0zFjNSWzf4', // task_id
@@ -153,6 +154,7 @@ function fieldMap(tableName) {
       fldOcyUlA41RqNgUn: 'showed_up',
       fldiY9gt8q0jWTegZ: 'created_at',
       fldHANxTYxcrjdjY8: 'phone',
+      flds9D7xefXHJVWgB: 'uid',
     },
     call_tasks: {
       fldGbpq0zFjNSWzf4: 'task_id',
