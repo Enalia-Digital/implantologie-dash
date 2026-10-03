@@ -593,6 +593,26 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     sinLlamada: agendadosSinLlamada,
   };
 
+  // --- Experimento: llamada en fin de semana ---
+  // Leads del periodo que marcaron en el formulario que aceptan ser llamados
+  // en fin de semana / fuera de horario. A estos solo se les hace la PRIMERA
+  // llamada en fin de semana; los reintentos van en horario normal.
+  // Medimos: cuantos aceptan, cuantos de esos agendan, y de los agendados
+  // cuantos cerraron en esa primera llamada de fin de semana.
+  const finSemanaLeadsArr = periodLeads.filter((l) => l.acepta_llamada_fin_semana === true);
+  const finSemanaAceptan = finSemanaLeadsArr.length;
+  let finSemanaAgendados = 0;
+  let finSemanaPrimera = 0;
+  finSemanaLeadsArr.forEach((l) => {
+    const lid = String(l.lead_id).trim();
+    const tCita = primeraCitaPorLead.get(lid);
+    if (tCita === undefined) return; // sin cita
+    finSemanaAgendados += 1;
+    const llamadasDelLead = callsPorLead.get(lid) || [];
+    const n = llamadasDelLead.filter((t) => t <= tCita + HOUR_MS).length;
+    if (n <= 1) finSemanaPrimera += 1; // cerrada en la 1a llamada (la de finde)
+  });
+
   // Minutos y coste facturables: cuenta TODAS las llamadas de la centralita
   // del periodo (nuevas, previas, salientes), EXCEPTO las demo internas y
   // webcalls con telefono de prueba, que se descartan tanto en el conteo
@@ -933,6 +953,9 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     repescaAgendados,
     repescaIntentosMedios,
     repescaLlamadasTotales,
+    finSemanaAceptan,
+    finSemanaAgendados,
+    finSemanaPrimera,
     citasAsistidas,
     citasNoShow,
     tasaNoShow,
