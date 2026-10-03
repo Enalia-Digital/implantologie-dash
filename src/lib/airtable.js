@@ -883,6 +883,8 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
         phone: a.phone || lead?.phone || null,
         appointmentStatus: a.appointment_status || null,
         attendanceStatus: a.attendance_status || null,
+        uid: a.uid || null,
+        rescheduleUrl: a.uid ? `https://cal.com/reschedule/${String(a.uid).trim()}` : null,
       };
     });
 

@@ -192,6 +192,21 @@ function AlertaCard({ item, onResolved, index }) {
         </button>
       </div>
 
+      {item.rescheduleUrl && (
+        <a
+          href={item.rescheduleUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="alert-btn alert-btn-reschedule"
+        >
+          <svg width="14" height="14" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M13 7.5A5.5 5.5 0 1 1 11.5 3.7" />
+            <path d="M13 2v3.5H9.5" />
+          </svg>
+          Reagendar
+        </a>
+      )}
+
       {state === 'error' && (
         <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 2 }}>
           {error || 'Error al guardar. Reintenta.'}
@@ -404,6 +419,17 @@ export default function Alertas() {
           background: rgba(230, 92, 100, 0.12);
           border-color: rgba(230, 92, 100, 0.4);
           color: var(--red);
+        }
+        .alert-btn-reschedule {
+          margin-top: 8px;
+          width: 100%;
+          text-decoration: none;
+          color: var(--text-secondary);
+        }
+        .alert-btn-reschedule:hover {
+          background: var(--accent-dim);
+          border-color: var(--accent-border);
+          color: var(--accent);
         }
         .alert-refresh {
           display: inline-flex; align-items: center; gap: 6px;
