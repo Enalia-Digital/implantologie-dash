@@ -22,6 +22,7 @@ const FIELDS = {
     'fldsXibskwiGbSr0U', // last_contact_at
     'fldqPNT9QE4RsBWbm', // appointment_id
     'fldTh6L03bGGj43Em', // created_at (fecha real de entrada)
+    'fldalP4V53XLDNvwh', // acepta_llamada_fin_semana
   ],
   calls: [
     'fldJPcVfHrXDdd5h2', // call_id
@@ -124,6 +125,7 @@ function fieldMap(tableName) {
       fldsXibskwiGbSr0U: 'last_contact_at',
       fldqPNT9QE4RsBWbm: 'appointment_id',
       fldTh6L03bGGj43Em: 'created_at',
+      fldalP4V53XLDNvwh: 'acepta_llamada_fin_semana',
     },
     calls: {
       fldJPcVfHrXDdd5h2: 'call_id',
