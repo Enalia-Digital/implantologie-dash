@@ -741,9 +741,12 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     const key = `${camp}|||${ad}`;
     if (!campMap[key]) campMap[key] = { campaña: camp, anuncio: ad, leads: 0, llamados: 0, contactados: 0, citas: 0, detalles: [] };
     const lid = String(l.lead_id).trim();
-    const llamado = dialedLeadIds.has(lid);
-    const contactado = contactedLeadIds.has(lid);
     const agendado = agendadaLeadIds.has(lid);
+    const llamado = dialedLeadIds.has(lid) || agendado;
+    // Un lead con cita SIEMPRE cuenta como contactado (se habló con él para
+    // agendar), aunque no haya una llamada >=15 s registrada. Asi nunca salen
+    // mas citas que contactados en la tabla de campañas.
+    const contactado = contactedLeadIds.has(lid) || agendado;
     campMap[key].leads++;
     if (llamado) campMap[key].llamados++;
     if (contactado) campMap[key].contactados++;
