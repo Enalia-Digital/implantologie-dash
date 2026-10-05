@@ -12,7 +12,12 @@ const CLINIC_MAP = {
   'los palacios': 'los_palacios',
 };
 
-function leadDate(l) { return l.created_at || l._createdTime; }
+// Fecha de ENTRADA del lead. Usamos _createdTime (creacion de la fila en
+// Airtable, inmutable) como fuente de verdad. OJO: el campo custom que llega
+// como l.created_at es en realidad "updated_at" (ultima actualizacion), que
+// cambia cada vez que se toca el lead y hacia que un lead de septiembre
+// saltase a octubre, bajando los conteos de meses pasados con el tiempo.
+function leadDate(l) { return l._createdTime || l.created_at; }
 
 function normalizeClinic(raw) {
   if (!raw) return null;
