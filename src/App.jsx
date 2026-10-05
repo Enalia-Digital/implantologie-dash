@@ -8,6 +8,7 @@ import CalendarView from './pages/CalendarView';
 import Calculator from './pages/Calculator';
 import Reports from './pages/Reports';
 import Alertas from './pages/Alertas';
+import PanelFechas from './pages/PanelFechas';
 
 export default function App() {
   const [splashDone, setSplashDone] = useState(false);
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/calculadora" element={<Calculator />} />
           <Route path="/reportes" element={<Reports />} />
           <Route path="/alertas" element={<Alertas />} />
+          <Route path="/panel-fechas" element={<PanelFechas />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </ClinicProvider>
