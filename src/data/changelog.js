@@ -3,6 +3,21 @@
 // el badge "1" y la animación de caída para todos los usuarios que aún no la vean.
 export const changelog = [
   {
+    id: '2026-10-v3-panel-fechas',
+    fecha: 'Octubre 2026',
+    titulo: 'v3 — Panel de Fechas',
+    tag: 'Nuevo',
+    sections: [
+      {
+        items: [
+          'Nuevo Panel de Fechas: bloquea los días que la clínica no atiende en segundos, sin ir evento por evento. Eliges clínica y especialidad, y marcas en el calendario los días a bloquear.',
+          'Puedes bloquear el día completo o solo media jornada (mañana o tarde), y volver a abrir un día con un clic.',
+          'Los días bloqueados se sincronizan directamente con el calendario de reservas: el asistente deja de ofrecer cita esos días al instante.',
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-10-v2',
     fecha: 'Octubre 2026',
     titulo: 'v2 — Medición por intento de llamada',
