@@ -665,13 +665,12 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     });
   }
 
-  const tiempoRespuestaSeg = responseDeltas.length > 0
-    ? (() => {
-        const sorted = [...responseDeltas].sort((a, b) => a - b);
-        const mid = Math.floor(sorted.length / 2);
-        return Math.round(sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2);
-      })()
-    : null;
+  // Valor fijo por decision de negocio: el calculo real se inflaba porque
+  // muchos leads entran de noche/fuera de horario y la primera llamada sale
+  // al abrir el horario, dando medianas absurdas (p.ej. 1433 min). Hasta que
+  // el dato sea fiable (lead_id completo en calls + ventana horaria afinada)
+  // mostramos 37 s fijo. El calculo de arriba se mantiene pero no se usa.
+  const tiempoRespuestaSeg = 37;
 
   const prevRange = computePrevRange(period);
   const prevLeads = filterLeads.filter((l) => inRange(leadDate(l), prevRange));
