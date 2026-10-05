@@ -17,6 +17,7 @@ export const changelog = [
           'Nuevas plantillas de mensaje para las campañas de reactivación.',
           'Nuevas plantillas para que el lead no se enfríe: tras varios intentos se envía una nueva redacción del mensaje de fuera de horario, y al agotar los intentos máximos se manda otra plantilla distinta para recuperarlo.',
           'Llamamos más veces en menos tiempo: hasta 4 intentos por lead al día, para contactar antes de que se enfríe.',
+          'Panel de gestión de leads: confirma asistencia, rechaza o reagenda la cita desde el propio panel. Próximamente: panel para bloquear días.',
         ],
       },
     ],
