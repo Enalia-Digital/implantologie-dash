@@ -254,16 +254,33 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   // Airtable arrastra filas totalmente vacías: sin lead_id no hay dato utilizable.
   const leads = (raw.leads || []).filter((l) => l.lead_id);
 
+  // Indice por telefono: la centralita escribe MUCHAS llamadas sin lead_id
+  // (aprox. 1 de cada 3) aunque el telefono SI corresponde a un lead conocido.
+  // Sin recuperar esas llamadas, esos leads no cuentan como contactados ni
+  // suman en los intentos por lead. Guardamos el primer lead por telefono.
+  const phoneKey = (p) => {
+    const g = String(p || '').replace(/\D/g, '');
+    return g.length >= 9 ? g.slice(-9) : g;
+  };
+  const leadByPhone = new Map();
+  leads.forEach((l) => {
+    const k = phoneKey(l.phone);
+    if (k && !leadByPhone.has(k)) leadByPhone.set(k, l);
+  });
+
   // Base cruda de llamadas: solo excluimos las filas de metadata basura de
   // Airtable. Mantenemos las WEBCALLS (sin lead_id) para el conteo de minutos
-  // facturables. Los demas calculos usan "calls" que exige lead_id.
+  // facturables. Los demas calculos usan "calls", que exige poder atribuir la
+  // llamada a un lead: por lead_id, o por telefono si el lead_id viene vacio.
   const allCallsRaw = dedupBy(
     (raw.calls || []).filter(
       (c) => !['call_outcome', 'last_objection', 'call outcome'].includes(c.call_id)
     ),
     (c) => c.call_id || c._recordId
   );
-  const calls = allCallsRaw.filter((c) => c.lead_id);
+  const calls = allCallsRaw.filter(
+    (c) => c.lead_id || (c.phone && leadByPhone.has(phoneKey(c.phone)))
+  );
 
   const appointments = dedupBy(
     (raw.appointments || []).filter((a) => {
@@ -283,11 +300,33 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     if (l.lead_id) leadMap.set(String(l.lead_id).trim(), l);
   });
 
-  // Matching por lead_id: es la clave real del sistema (viene de Meta Ads).
+  // Matching por lead_id (clave real del sistema, viene de Meta Ads) y, si no
+  // resuelve, por telefono como respaldo.
   const resolveLead = (rec) => {
     const lid = rec.lead_id ? String(rec.lead_id).trim() : null;
-    return lid ? leadMap.get(lid) || null : null;
+    if (lid && leadMap.has(lid)) return leadMap.get(lid);
+    const k = phoneKey(rec.phone);
+    if (k && leadByPhone.has(k)) return leadByPhone.get(k);
+    return null;
   };
+  // Devuelve el lead_id canonico de un registro (llamada/cita), resolviendo
+  // por telefono cuando el lead_id viene vacio.
+  const resolveLeadId = (rec) => {
+    const lead = resolveLead(rec);
+    if (lead && lead.lead_id) return String(lead.lead_id).trim();
+    return rec.lead_id ? String(rec.lead_id).trim() : null;
+  };
+
+  // Rellenamos el lead_id que falta en las llamadas usando el telefono, UNA
+  // sola vez. Asi TODAS las metricas por lead (contactados, intentos por lead,
+  // evolucion, historico) cuentan esas llamadas de forma coherente. Nunca
+  // sobreescribimos un lead_id que ya venga informado.
+  calls.forEach((c) => {
+    if (!c.lead_id) {
+      const lid = resolveLeadId(c);
+      if (lid) c.lead_id = lid;
+    }
+  });
 
   const demoLeadIds = new Set();
   leads.forEach((l) => {
@@ -406,8 +445,8 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   // exclusivamente para el KPI "Leads Contactados" y su ratio derivado.
   const contactadosEstrictoLeadIds = new Set();
   periodCalls.forEach((c) => {
-    if (!c.lead_id) return;
-    const lid = String(c.lead_id).trim();
+    const lid = resolveLeadId(c);
+    if (!lid) return;
     dialedLeadIds.add(lid);
     if (fueAtendida(c)) contactedLeadIds.add(lid);
     if (esContactoRealLead(c)) contactadosEstrictoLeadIds.add(lid);
