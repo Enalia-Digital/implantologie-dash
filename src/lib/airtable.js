@@ -510,18 +510,39 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   }).length;
   const citasRescate = citasAgendadas - citasNuevas;
 
-  // Cross-vista igual que citasAgendadas: las asistencias reales del periodo
-  // no cambian segun estes en pestana activacion o previos.
-  const asistidaLeadIds = new Set();
-  periodApptsAll.forEach((a) => {
-    if (a.lead_id && asistioACita(a)) asistidaLeadIds.add(String(a.lead_id).trim());
+  // --- Asistencia (shows / no-shows) ---
+  // OJO: la asistencia se mide por la FECHA REAL de la cita (appointment_start),
+  // NO por cuando se agendo (created_at). Una cita agendada en septiembre que
+  // ocurre en octubre es asistencia de OCTUBRE; una agendada en octubre para
+  // noviembre todavia no es ni asistio ni no-show. Ademas solo contamos las
+  // citas cuya fecha YA paso: las futuras siguen "pendientes de confirmar".
+  // Es cross-vista (no depende de activacion/previos), igual que citasAgendadas.
+  const ahoraAsistMs = Date.now();
+  const apptPerteneceClinica = (a) => {
+    if (clinicId === 'general') return true;
+    const apptClinic = normalizeClinic(a.clinic_id);
+    if (apptClinic) return apptClinic === clinicId;
+    const lid = a.lead_id ? String(a.lead_id).trim() : null;
+    const lead = lid ? leadMap.get(lid) : null;
+    return lead ? normalizeClinic(lead.preferred_clinic_id) === clinicId : false;
+  };
+  const asistenciaAppts = appointments.filter((a) => {
+    const lid = a.lead_id ? String(a.lead_id).trim() : null;
+    if (lid && demoLeadIds.has(lid)) return false;
+    if (isDemoPhone(a.phone)) return false;
+    if (!a.appointment_start) return false;
+    const t = new Date(a.appointment_start).getTime();
+    if (!Number.isFinite(t) || t > ahoraAsistMs) return false; // solo citas ya pasadas
+    if (!inRange(a.appointment_start, range)) return false;
+    return apptPerteneceClinica(a);
   });
-  const citasAsistidas = periodApptsAll.filter(asistioACita).length;
-  const citasNoShow = periodApptsAll.filter(fueNoShow).length;
+
+  const citasAsistidas = asistenciaAppts.filter(asistioACita).length;
+  const citasNoShow = asistenciaAppts.filter(fueNoShow).length;
 
   // Lista detallada de asistencias/ausencias del periodo para el bloque
-  // de "Asistencias" del dashboard. Usa periodApptsAll (cross-vista).
-  const asistenciasRecientes = periodApptsAll
+  // de "Asistencias" del dashboard (por fecha real de cita, ya pasadas).
+  const asistenciasRecientes = asistenciaAppts
     .filter((a) => asistioACita(a) || fueNoShow(a))
     .map((a) => {
       const lid = a.lead_id ? String(a.lead_id).trim() : null;
