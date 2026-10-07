@@ -1156,9 +1156,27 @@ function buildHistorico(allLeads, allCalls, allAppts, clinicId, leadMap, demoLea
       return lead ? normalizeClinic(lead.preferred_clinic_id) === clinicId : false;
     });
 
+    // Asistidas: por fecha REAL de la cita (appointment_start) y ya pasada,
+    // no por cuando se agendo. 'citas' (agendadas) si va por created_at.
+    const ahoraHistMs = Date.now();
+    const mAsist = allAppts.filter((a) => {
+      const lid = a.lead_id ? String(a.lead_id).trim() : null;
+      if (lid && demoLeadIds.has(lid)) return false;
+      if (isDemoPhone(a.phone)) return false;
+      if (!a.appointment_start) return false;
+      const t = new Date(a.appointment_start).getTime();
+      if (!Number.isFinite(t) || t > ahoraHistMs) return false;
+      if (!inRange(a.appointment_start, m)) return false;
+      if (clinicId === 'general') return true;
+      const ac = normalizeClinic(a.clinic_id);
+      if (ac) return ac === clinicId;
+      const lead = lid ? leadMap.get(lid) : null;
+      return lead ? normalizeClinic(lead.preferred_clinic_id) === clinicId : false;
+    });
+
     const leads = mLeads.length;
     const citas = mAppts.length;
-    const asistidas = mAppts.filter(asistioACita).length || null;
+    const asistidas = mAsist.filter(asistioACita).length || null;
 
     const secs = mCallsAll.reduce((s, c) => s + (Number(c.duration_seconds) || 0), 0);
     const coste = parseFloat(((secs / 60) * defaultConfig.costePorMinuto).toFixed(1));
