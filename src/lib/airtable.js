@@ -17,7 +17,11 @@ const CLINIC_MAP = {
 // (createdTime de la fila, equivalente). NUNCA usamos l.created_at porque ese
 // campo custom es en realidad updated_at (mutable) y hacia que un lead saltase
 // de mes al tocarlo, bajando los conteos historicos con el tiempo.
-function leadDate(l) { return l.fecha_creada || l._createdTime || l.created_at; }
+// fecha_meta = fecha real de entrada en Meta (la escribe el backfill/n8n).
+// Es la que rige el MES del lead: una reentrada cuenta en el mes que vuelve a
+// entrar, no en el de su primera fila. Si no hay fecha_meta, caemos a la fecha
+// de creacion de la fila (Creada), que para la mayoria coincide con la entrada.
+function leadDate(l) { return l.fecha_meta || l.fecha_creada || l._createdTime || l.created_at; }
 
 function normalizeClinic(raw) {
   if (!raw) return null;
@@ -345,16 +349,35 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     return lead ? normalizeClinic(lead.preferred_clinic_id) : null;
   };
 
+  // Leads marcados "solo mes, no historico": cuentan en su vista mensual
+  // normal, pero se excluyen del total Histórico Enalia (period === 'enalia').
+  // Son leads recuperados a mano que no deben inflar el total histórico.
+  const excluirHistorico = period === 'enalia';
+  const noHistoricoLeadIds = new Set();
+  if (excluirHistorico) {
+    leads.forEach((l) => {
+      if (l.lead_id && (l.solo_mes_no_historico === true || l.solo_mes_no_historico === 1)) {
+        noHistoricoLeadIds.add(String(l.lead_id).trim());
+      }
+    });
+  }
+  const esNoHistorico = (rec) => {
+    if (noHistoricoLeadIds.size === 0) return false;
+    const lid = resolveLeadId(rec);
+    return lid ? noHistoricoLeadIds.has(lid) : false;
+  };
+
   const filterLeads = (clinicId === 'general'
     ? leads
     : leads.filter((l) => normalizeClinic(l.preferred_clinic_id) === clinicId)
-  ).filter((l) => !isDemoPhone(l.phone));
+  ).filter((l) => !isDemoPhone(l.phone) && !noHistoricoLeadIds.has(String(l.lead_id).trim()));
 
   let periodLeads = filterLeads.filter((l) => inRange(leadDate(l), range));
 
   const allPeriodCalls = calls.filter((c) => {
     const date = c.started_at || c._createdTime;
     if (!inRange(date, range)) return false;
+    if (esNoHistorico(c)) return false;
     if (clinicId === 'general') return true;
     return callLeadClinic(c) === clinicId;
   });
@@ -364,6 +387,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   let periodAppts = appointments.filter((a) => {
     const lid = a.lead_id ? String(a.lead_id).trim() : null;
     if (lid && demoLeadIds.has(lid)) return false;
+    if (lid && noHistoricoLeadIds.has(lid)) return false;
     if (isDemoPhone(a.phone)) return false;
     // Fallback robusto: created_at puede venir mal cargado (fecha futura o
     // cruzada con appointment_start). Priorizamos created_at solo si es
@@ -568,6 +592,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   const asistenciaAppts = appointments.filter((a) => {
     const lid = a.lead_id ? String(a.lead_id).trim() : null;
     if (lid && demoLeadIds.has(lid)) return false;
+    if (lid && noHistoricoLeadIds.has(lid)) return false;
     if (isDemoPhone(a.phone)) return false;
     if (!a.appointment_start) return false;
     const t = new Date(a.appointment_start).getTime();
