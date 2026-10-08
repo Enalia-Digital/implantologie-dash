@@ -24,6 +24,8 @@ const FIELDS = {
     'fldTh6L03bGGj43Em', // updated_at (ultima actualizacion, NO entrada)
     'fldalP4V53XLDNvwh', // acepta_llamada_fin_semana
     'fld4IchVajItQfXXi', // Creada (createdTime, fecha de entrada inmutable)
+    'fld2Eg5ntWY6VmTgV', // fecha_meta (fecha real de entrada en Meta)
+    'fld7flr3K1F7NXHeQ', // solo_mes_no_historico
   ],
   calls: [
     'fldJPcVfHrXDdd5h2', // call_id
@@ -129,6 +131,8 @@ function fieldMap(tableName) {
       fldTh6L03bGGj43Em: 'created_at',
       fldalP4V53XLDNvwh: 'acepta_llamada_fin_semana',
       fld4IchVajItQfXXi: 'fecha_creada',
+      fld2Eg5ntWY6VmTgV: 'fecha_meta',
+      fld7flr3K1F7NXHeQ: 'solo_mes_no_historico',
     },
     calls: {
       fldJPcVfHrXDdd5h2: 'call_id',
