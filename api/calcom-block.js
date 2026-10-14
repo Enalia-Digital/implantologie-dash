@@ -53,7 +53,10 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const token = process.env.CALCOM_API_KEY;
+  // Aceptamos varios nombres de variable por si se configuro con otro nombre.
+  const token = process.env.CALCOM_API_KEY
+    || process.env.calcom_api_panel_horas
+    || process.env.CALCOM_API_PANEL_HORAS;
   if (!token) return res.status(500).json({ error: 'CALCOM_API_KEY no configurada en Vercel.' });
 
   try {
