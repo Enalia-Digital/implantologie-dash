@@ -1,6 +1,9 @@
 import { Fragment, useState } from 'react';
+import { motion } from 'motion/react';
 import { Card, SectionLabel } from '../ui/primitives';
 import { fmt, fmtPct } from '../../lib/calc';
+
+const EASE = [0.23, 1, 0.32, 1];
 
 function convColor(v) {
   if (v >= 20) return 'var(--green)';
@@ -13,6 +16,114 @@ function estadoColor(e) {
   if (e === 'Contactado') return 'var(--accent)';
   if (e === 'Sin descolgar') return 'var(--orange)';
   return 'var(--text-muted)';
+}
+
+// --- Podio: top 3 campañas por número de CITAS (desempate: conversión) ---
+// Pendiente (próximo informe): poder ordenar también por ticket medio / valor €.
+function PodiumCard({ row, place }) {
+  const first = place === 1;
+  const accent = first ? 'var(--accent)' : 'var(--text-secondary)';
+  const medal = place === 1 ? '👑' : place === 2 ? '🥈' : '🥉';
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: EASE, delay: 0.05 * place }}
+      className="podium-card"
+      data-first={first}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
+        flex: 1, minWidth: 0,
+        padding: first ? '18px 14px 20px' : '14px 12px 16px',
+        borderRadius: 18,
+        background: first ? 'var(--accent-dim)' : 'var(--bg-card)',
+        border: `1px solid ${first ? 'var(--accent-border)' : 'var(--border-hairline)'}`,
+        boxShadow: first ? '0 8px 28px rgba(191,0,255,0.14)' : '0 1px 2px rgba(15,15,25,0.03)',
+        alignSelf: 'stretch',
+      }}
+    >
+      <div style={{ fontSize: first ? 26 : 20, lineHeight: 1, marginBottom: 6 }}>{medal}</div>
+      <div style={{
+        fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+        color: accent, marginBottom: first ? 10 : 8,
+      }}>
+        Top {place}
+      </div>
+
+      <div style={{
+        fontSize: first ? 40 : 30, fontWeight: 600, lineHeight: 1, letterSpacing: '-0.02em',
+        color: first ? 'var(--accent)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums',
+      }}>
+        {fmt(row.citas)}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 3, marginBottom: 12 }}>
+        citas
+      </div>
+
+      <div style={{
+        fontSize: first ? 14 : 13, fontWeight: 600, color: 'var(--text-primary)',
+        lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis',
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+      }}>
+        {row.anuncio}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+        {row.campaña}
+      </div>
+
+      <div style={{
+        marginTop: 12, paddingTop: 10, width: '100%',
+        borderTop: '1px solid var(--border-hairline)',
+        display: 'flex', justifyContent: 'center', gap: 12,
+        fontSize: 11, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums',
+      }}>
+        <span>{fmt(row.leads)} leads</span>
+        <span style={{ color: 'var(--border-subtle)' }}>·</span>
+        <span style={{ color: convColor(row.conv), fontWeight: 600 }}>{fmtPct(row.conv)}</span>
+      </div>
+    </motion.div>
+  );
+}
+
+function Podium({ rows }) {
+  // Orden: por citas; si empatan, el de mejor conversión.
+  const ranked = [...rows].sort((a, b) => (b.citas - a.citas) || (b.conv - a.conv));
+  const top = ranked.slice(0, 3);
+  if (top.length === 0 || top[0].citas === 0) return null;
+
+  // Colocación visual: 2º a la izquierda, 1º en el centro (más alto), 3º a la derecha.
+  const left = top[1];
+  const center = top[0];
+  const right = top[2];
+
+  return (
+    <Card style={{ padding: 'clamp(16px, 3vw, 22px)', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        <span style={{ fontSize: 14 }}>🏆</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Podio de campañas</span>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16 }}>
+        Las que más citas traen.
+      </div>
+
+      <div className="podium-row" style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
+        {left && <PodiumCard row={left} place={2} />}
+        <PodiumCard row={center} place={1} />
+        {right && <PodiumCard row={right} place={3} />}
+      </div>
+
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 14, lineHeight: 1.5 }}>
+        * Ordenado por número de citas. Pendiente para el próximo informe: ordenar también por <b style={{ fontWeight: 600 }}>ticket medio</b> (valor € de cada tratamiento).
+      </div>
+
+      <style>{`
+        @media (max-width: 560px) {
+          .podium-row { flex-direction: column; align-items: stretch !important; }
+          .podium-row .podium-card[data-first="true"] { order: -1; }
+        }
+      `}</style>
+    </Card>
+  );
 }
 
 export default function CampaignsBlock({ data }) {
@@ -29,6 +140,9 @@ export default function CampaignsBlock({ data }) {
   return (
     <section>
       <SectionLabel>Rendimiento de Campañas</SectionLabel>
+
+      <Podium rows={rows} />
+
       <Card style={{ paddingBottom: 4, overflowX: 'auto' }}>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14 }}>
           Pulsa una campaña para ver sus leads. <b style={{ fontWeight: 600 }}>Contactados</b> son los que cogieron el teléfono.
