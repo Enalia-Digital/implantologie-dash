@@ -26,6 +26,7 @@ const FIELDS = {
     'fld4IchVajItQfXXi', // Creada (createdTime, fecha de entrada inmutable)
     'fld2Eg5ntWY6VmTgV', // fecha_meta (fecha real de entrada en Meta)
     'fld7flr3K1F7NXHeQ', // solo_mes_no_historico
+    'fldnjCVGnxChi8Iu3', // tratamiento (implantologia / ortodoncia / estetica)
   ],
   calls: [
     'fldJPcVfHrXDdd5h2', // call_id
@@ -133,6 +134,7 @@ function fieldMap(tableName) {
       fld4IchVajItQfXXi: 'fecha_creada',
       fld2Eg5ntWY6VmTgV: 'fecha_meta',
       fld7flr3K1F7NXHeQ: 'solo_mes_no_historico',
+      fldnjCVGnxChi8Iu3: 'tratamiento',
     },
     calls: {
       fldJPcVfHrXDdd5h2: 'call_id',

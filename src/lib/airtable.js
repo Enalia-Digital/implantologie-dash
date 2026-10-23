@@ -29,6 +29,36 @@ function normalizeClinic(raw) {
   return CLINIC_MAP[trimmed] || CLINIC_MAP[trimmed.toLowerCase()] || null;
 }
 
+// Tratamiento del lead. El select "verdad" en Airtable es el campo
+// `tratamiento` (implantologia / ortodoncia / estetica). Cuando viene vacío
+// (leads antiguos sin clasificar) lo deducimos del nombre de campaña/anuncio.
+// "estetica" es lo que el cliente llama "carillas".
+const TRATAMIENTOS = ['implantologia', 'ortodoncia', 'estetica'];
+const TRATAMIENTO_LABEL = {
+  implantologia: 'Implantología',
+  ortodoncia: 'Ortodoncia',
+  estetica: 'Carillas',
+};
+function normalizeTratamiento(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim().toLowerCase();
+  if (!s) return null;
+  if (s.startsWith('implant')) return 'implantologia';
+  if (s.startsWith('ortodon')) return 'ortodoncia';
+  if (s.startsWith('estetic') || s.startsWith('estétic') || s.includes('carilla')) return 'estetica';
+  return null;
+}
+function tratamientoLead(lead) {
+  if (!lead) return null;
+  const direct = normalizeTratamiento(lead.tratamiento);
+  if (direct) return direct;
+  const txt = `${lead.campaign_name || ''} ${lead.adset_name || ''}`.toLowerCase();
+  if (/implant/.test(txt)) return 'implantologia';
+  if (/ortodon|invisalign|bracket/.test(txt)) return 'ortodoncia';
+  if (/carilla|est[eé]tic|dise[nñ]o de sonrisa/.test(txt)) return 'estetica';
+  return null;
+}
+
 export function periodRange(period) {
   const now = new Date();
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -763,6 +793,15 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     ? Math.round(((totalLeads - prevLeads.length) / prevLeads.length) * 100)
     : null;
 
+  // Clínica de una cita: la propia del registro y, si falta, la del lead.
+  const apptClinicKey = (a) => {
+    const ac = normalizeClinic(a.clinic_id);
+    if (ac) return ac;
+    const lid = a.lead_id ? String(a.lead_id).trim() : null;
+    const lead = lid ? leadMap.get(lid) : null;
+    return lead ? normalizeClinic(lead.preferred_clinic_id) : null;
+  };
+
   let porClinica = null;
   if (clinicId === 'general') {
     const clinicIds = ['triana', 'los_palacios', 'san_jose'];
@@ -770,16 +809,41 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     const keyMap = { triana: 'triana', los_palacios: 'losPalacios', san_jose: 'sanJose' };
     clinicIds.forEach((cid) => {
       const clinicLeads = periodLeads.filter((l) => normalizeClinic(l.preferred_clinic_id) === cid);
-      const cCitas = periodAppts.filter((a) => {
-        const ac = normalizeClinic(a.clinic_id);
-        if (ac) return ac === cid;
-        const lid = a.lead_id ? String(a.lead_id).trim() : null;
-        const lead = lid ? leadMap.get(lid) : null;
-        return lead ? normalizeClinic(lead.preferred_clinic_id) === cid : false;
-      }).length;
-      porClinica[keyMap[cid]] = { leads: clinicLeads.length, citas: cCitas };
+      const cCitas = periodAppts.filter((a) => apptClinicKey(a) === cid).length;
+      // Asistencias / ausencias: cruzamos las citas ya pasadas (asistenciaAppts)
+      // de vuelta a su clínica para marcar quién de verdad acudió.
+      const clinicAsist = asistenciaAppts.filter((a) => apptClinicKey(a) === cid);
+      const asistencias = clinicAsist.filter(asistioACita).length;
+      const ausencias = clinicAsist.filter(fueNoShow).length;
+      const confirmadas = asistencias + ausencias;
+      const tasaAsistencia = confirmadas > 0
+        ? parseFloat(((asistencias / confirmadas) * 100).toFixed(1))
+        : null;
+      porClinica[keyMap[cid]] = { leads: clinicLeads.length, citas: cCitas, asistencias, ausencias, tasaAsistencia };
     });
   }
+
+  // Ausencias por tratamiento (implantología / ortodoncia / carillas): cruzamos
+  // las citas ya pasadas con el tratamiento del lead, para ver a qué tipo de
+  // tratamiento se falta más. Respeta el filtro de clínica activo.
+  const ausenciasPorTratamiento = TRATAMIENTOS.map((k) => ({
+    key: k, label: TRATAMIENTO_LABEL[k], asistencias: 0, ausencias: 0,
+  }));
+  const tratIndex = { implantologia: 0, ortodoncia: 1, estetica: 2 };
+  asistenciaAppts.forEach((a) => {
+    const lid = a.lead_id ? String(a.lead_id).trim() : null;
+    const lead = lid ? leadMap.get(lid) : null;
+    const t = tratamientoLead(lead);
+    if (t == null || tratIndex[t] === undefined) return;
+    const o = ausenciasPorTratamiento[tratIndex[t]];
+    if (asistioACita(a)) o.asistencias += 1;
+    else if (fueNoShow(a)) o.ausencias += 1;
+  });
+  ausenciasPorTratamiento.forEach((o) => {
+    const conf = o.asistencias + o.ausencias;
+    o.confirmadas = conf;
+    o.tasaAusencia = conf > 0 ? parseFloat(((o.ausencias / conf) * 100).toFixed(1)) : null;
+  });
 
   const evolucion = buildEvolution(periodLeads, periodCalls, periodAppts, range, leadMap, agendadaLeadIds);
 
@@ -820,12 +884,14 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     .map((o) => ({ ...o, pct: Math.round((o.count / totalObj) * 100) }));
 
   const campMap = {};
+  const leadCampKey = new Map();
   periodLeads.forEach((l) => {
     const camp = l.campaign_name || 'Sin campaña';
     const ad = l.adset_name || 'Sin anuncio';
     const key = `${camp}|||${ad}`;
-    if (!campMap[key]) campMap[key] = { campaña: camp, anuncio: ad, leads: 0, llamados: 0, contactados: 0, citas: 0, detalles: [] };
+    if (!campMap[key]) campMap[key] = { campaña: camp, anuncio: ad, leads: 0, llamados: 0, contactados: 0, citas: 0, asistencias: 0, detalles: [] };
     const lid = String(l.lead_id).trim();
+    leadCampKey.set(lid, key);
     const agendado = agendadaLeadIds.has(lid);
     const llamado = dialedLeadIds.has(lid) || agendado;
     // Un lead con cita SIEMPRE cuenta como contactado (se habló con él para
@@ -846,6 +912,17 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
       estado: agendado ? 'Agendado' : contactado ? 'Contactado' : 'Sin respuesta',
     });
   });
+  // Asistencias por campaña: cruzamos de vuelta las citas ya pasadas a las que
+  // de verdad se acudió (asistenciaAppts) con la campaña por la que entró el
+  // lead. Así medimos no solo qué campaña agenda más, sino a cuál se asiste más.
+  asistenciaAppts.forEach((a) => {
+    if (!asistioACita(a)) return;
+    const lid = a.lead_id ? String(a.lead_id).trim() : null;
+    if (!lid) return;
+    const key = leadCampKey.get(lid);
+    if (key && campMap[key]) campMap[key].asistencias += 1;
+  });
+
   const campanas = Object.values(campMap)
     .map((c) => ({ ...c, conv: c.leads > 0 ? parseFloat(((c.citas / c.leads) * 100).toFixed(1)) : 0 }))
     .sort((a, b) => b.citas - a.citas);
@@ -1067,6 +1144,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     callMinutes,
     leadsDelta,
     porClinica,
+    ausenciasPorTratamiento,
     evolucion,
     objeciones,
     leadsLlamados,

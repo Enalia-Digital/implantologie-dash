@@ -74,10 +74,12 @@ function PodiumCard({ row, place }) {
       <div style={{
         marginTop: 12, paddingTop: 10, width: '100%',
         borderTop: '1px solid var(--border-hairline)',
-        display: 'flex', justifyContent: 'center', gap: 12,
+        display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 10,
         fontSize: 11, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums',
       }}>
         <span>{fmt(row.leads)} leads</span>
+        <span style={{ color: 'var(--border-subtle)' }}>·</span>
+        <span style={{ color: 'var(--green)', fontWeight: 600 }}>{fmt(row.asistencias || 0)} asist.</span>
         <span style={{ color: 'var(--border-subtle)' }}>·</span>
         <span style={{ color: convColor(row.conv), fontWeight: 600 }}>{fmtPct(row.conv)}</span>
       </div>
@@ -145,17 +147,18 @@ export default function CampaignsBlock({ data }) {
 
       <Card style={{ paddingBottom: 4, overflowX: 'auto' }}>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14 }}>
-          Pulsa una campaña para ver sus leads. <b style={{ fontWeight: 600 }}>Contactados</b> son los que cogieron el teléfono.
+          Pulsa una campaña para ver sus leads. <b style={{ fontWeight: 600 }}>Contactados</b> son los que cogieron el teléfono. <b style={{ fontWeight: 600 }}>Asist.</b> son los que de verdad acudieron a la cita (cruzado de vuelta a su campaña).
         </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
           <thead>
             <tr style={{ textAlign: 'left' }}>
               <th style={{ ...th, textAlign: 'left' }}>Campaña</th>
               <th style={{ ...th, textAlign: 'left' }}>Anuncio</th>
               <th style={{ ...th, textAlign: 'right' }}>Leads</th>
               <th style={{ ...th, textAlign: 'right' }}>Contactados</th>
-              <th style={{ ...th, textAlign: 'right' }}>Citas</th>
+              <th style={{ ...th, textAlign: 'right' }} title="Citas agendadas (agendamientos)">Citas</th>
+              <th style={{ ...th, textAlign: 'right' }} title="Pacientes que de verdad acudieron a la cita de esta campaña">Asist.</th>
               <th style={{ ...th, textAlign: 'right' }} title="Citas agendadas sobre el total de leads de la campaña">Agendamiento</th>
             </tr>
           </thead>
@@ -194,6 +197,7 @@ export default function CampaignsBlock({ data }) {
                     <td style={{ ...td, textAlign: 'right' }}>{fmt(r.leads)}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{fmt(r.contactados)}</td>
                     <td style={{ ...td, textAlign: 'right', color: 'var(--text-primary)', fontWeight: 600 }}>{fmt(r.citas)}</td>
+                    <td style={{ ...td, textAlign: 'right', color: (r.asistencias || 0) > 0 ? 'var(--green)' : 'var(--text-muted)', fontWeight: (r.asistencias || 0) > 0 ? 600 : 400 }}>{fmt(r.asistencias || 0)}</td>
                     <td style={{ ...td, textAlign: 'right' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
                         <span style={{ width: 36, height: 4, background: 'var(--bar-bg)', borderRadius: 2, overflow: 'hidden' }}>
@@ -206,7 +210,7 @@ export default function CampaignsBlock({ data }) {
 
                   {open && detalles.length > 0 && (
                     <tr>
-                      <td colSpan={6} style={{ padding: '0 12px 14px 31px', background: 'var(--row-hover)' }}>
+                      <td colSpan={7} style={{ padding: '0 12px 14px 31px', background: 'var(--row-hover)' }}>
                         {detalles.map((d, j) => (
                           <div
                             key={j}
@@ -229,6 +233,10 @@ export default function CampaignsBlock({ data }) {
             })}
           </tbody>
         </table>
+
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-hairline)', lineHeight: 1.5 }}>
+          * Ordenado por número de citas. La foto del anuncio no se puede mostrar aquí: no tenemos acceso al portafolio de anuncios de Meta.
+        </div>
       </Card>
     </section>
   );
