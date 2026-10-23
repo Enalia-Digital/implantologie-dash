@@ -175,18 +175,23 @@ export default function FirstCallBlock({ data }) {
               // sigue apuntando a la barra con left = t.
               const n = rows.length;
               const t = n > 1 ? hovered / (n - 1) : 0.5;
+              // El desplazamiento horizontal va por la prop `x` de framer-motion
+              // (porcentaje del ancho de la propia caja), NO por `transform` en
+              // style: framer controla el transform con y/scale y pisaría
+              // cualquier translateX puesto a mano. Así la caja se mantiene dentro
+              // del contenedor en la primera y la última barra.
+              const xShift = `${-t * 100}%`;
               return (
                 <motion.div
                   key="tt"
-                  initial={{ opacity: 0, y: 4, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                  initial={{ opacity: 0, y: 4, scale: 0.96, x: xShift }}
+                  animate={{ opacity: 1, y: 0, scale: 1, x: xShift }}
+                  exit={{ opacity: 0, y: 4, scale: 0.96, x: xShift }}
                   transition={{ duration: 0.18, ease: EASE_APPLE }}
                   style={{
                     position: 'absolute',
                     top: 0,
                     left: `${t * 100}%`,
-                    transform: `translateX(${-t * 100}%)`,
                     pointerEvents: 'none',
                   }}
                 >
