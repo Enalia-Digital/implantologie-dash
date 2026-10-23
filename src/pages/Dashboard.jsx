@@ -40,7 +40,7 @@ function buildByClinicForReport(data) {
       totalLeads: s.leads,
       leadsContactados: Math.round(s.leads * 0.92),
       citasAgendadas: s.citas,
-      citasAsistidas: null,
+      citasAsistidas: s.asistencias ?? null,
       totalLlamadas: null,
       tiempoRespuestaSeg: null,
     },
