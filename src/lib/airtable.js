@@ -671,7 +671,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   // Para cada lead con cita, contamos las llamadas del sistema (todas, no demo,
   // contestadores y 0:00 incluidos) cuyo started_at es <= created_at de la cita
   // (con 1h de margen por desfases de reloj). Buckets: 1, 2, 3, 4, 5, "+5".
-  const agendamientoPorIntentoBuckets = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, '6+': 0 };
+  const agendamientoPorIntentoBuckets = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, '11+': 0 };
   const callsPorLead = new Map();
   calls.forEach((c) => {
     if (!c.lead_id) return;
@@ -704,7 +704,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
       agendamientoPorIntentoBuckets[1] += 1;
       return;
     }
-    const key = n >= 6 ? '6+' : String(n);
+    const key = n >= 11 ? '11+' : String(n);
     agendamientoPorIntentoBuckets[key] += 1;
   });
   const agendamientoPorIntento = {

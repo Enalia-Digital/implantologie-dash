@@ -13,14 +13,19 @@ import { useClinic } from '../../context/ClinicContext';
  * sin tabla larga, sin ruido. La info profunda esta al hover.
  */
 
-const ORDER = ['1', '2', '3', '4', '5', '6+'];
+const ORDER = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11+'];
 const LABELS = {
   '1':  '1ª',
   '2':  '2ª',
   '3':  '3ª',
   '4':  '4ª',
   '5':  '5ª',
-  '6+': '+5',
+  '6':  '6ª',
+  '7':  '7ª',
+  '8':  '8ª',
+  '9':  '9ª',
+  '10': '10ª',
+  '11+': '+10',
 };
 const LABEL_LONG = {
   '1':  '1ª llamada',
@@ -28,7 +33,12 @@ const LABEL_LONG = {
   '3':  '3ª llamada',
   '4':  '4ª llamada',
   '5':  '5ª llamada',
-  '6+': 'más de 5 llamadas',
+  '6':  '6ª llamada',
+  '7':  '7ª llamada',
+  '8':  '8ª llamada',
+  '9':  '9ª llamada',
+  '10': '10ª llamada',
+  '11+': 'más de 10 llamadas',
 };
 
 const SPRING = { type: 'spring', stiffness: 260, damping: 26, mass: 0.6 };
@@ -157,7 +167,15 @@ export default function FirstCallBlock({ data }) {
             style={{ position: 'relative', minWidth: 0, paddingTop: 44 }}
           >
             <AnimatePresence>
-              {hoveredRow && (
+              {hoveredRow && (() => {
+              // t: 0 en la barra más a la izquierda, 1 en la de más a la derecha.
+              // La caja se ancla al centro de la barra y se desplaza de alineada
+              // a la izquierda (t=0) a alineada a la derecha (t=1), así nunca se
+              // sale del contenedor y no hace falta scrollear de lado. La puntita
+              // sigue apuntando a la barra con left = t.
+              const n = rows.length;
+              const t = n > 1 ? hovered / (n - 1) : 0.5;
+              return (
                 <motion.div
                   key="tt"
                   initial={{ opacity: 0, y: 4, scale: 0.96 }}
@@ -167,10 +185,8 @@ export default function FirstCallBlock({ data }) {
                   style={{
                     position: 'absolute',
                     top: 0,
-                    left: rows.length > 1
-                      ? `calc(${(hovered / (rows.length - 1)) * 100}% - 0px)`
-                      : '50%',
-                    transform: 'translateX(-50%)',
+                    left: `${t * 100}%`,
+                    transform: `translateX(${-t * 100}%)`,
                     pointerEvents: 'none',
                   }}
                 >
@@ -196,14 +212,15 @@ export default function FirstCallBlock({ data }) {
                     {/* puntita/callout apuntando a la barra */}
                     <span aria-hidden="true" style={{
                       position: 'absolute',
-                      bottom: -4, left: '50%', transform: 'translateX(-50%) rotate(45deg)',
+                      bottom: -4, left: `${t * 100}%`, transform: 'translateX(-50%) rotate(45deg)',
                       width: 8, height: 8,
                       background: 'var(--text-primary)',
                       borderRadius: 1,
                     }} />
                   </div>
                 </motion.div>
-              )}
+              );
+              })()}
             </AnimatePresence>
 
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
