@@ -889,9 +889,11 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     const camp = l.campaign_name || 'Sin campaña';
     const ad = l.adset_name || 'Sin anuncio';
     const key = `${camp}|||${ad}`;
-    if (!campMap[key]) campMap[key] = { campaña: camp, anuncio: ad, leads: 0, llamados: 0, contactados: 0, citas: 0, asistencias: 0, detalles: [] };
+    if (!campMap[key]) campMap[key] = { campaña: camp, anuncio: ad, leads: 0, llamados: 0, contactados: 0, citas: 0, asistencias: 0, tratCount: { implantologia: 0, ortodoncia: 0, estetica: 0 }, detalles: [] };
     const lid = String(l.lead_id).trim();
     leadCampKey.set(lid, key);
+    const tl = tratamientoLead(l);
+    if (tl && campMap[key].tratCount[tl] !== undefined) campMap[key].tratCount[tl] += 1;
     const agendado = agendadaLeadIds.has(lid);
     const llamado = dialedLeadIds.has(lid) || agendado;
     // Un lead con cita SIEMPRE cuenta como contactado (se habló con él para
@@ -923,8 +925,20 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     if (key && campMap[key]) campMap[key].asistencias += 1;
   });
 
+  // Tratamiento dominante de cada campaña: el más frecuente entre sus leads
+  // (implantologia / ortodoncia / estetica). Sirve para agrupar la tabla de
+  // campañas en desplegables por tratamiento.
   const campanas = Object.values(campMap)
-    .map((c) => ({ ...c, conv: c.leads > 0 ? parseFloat(((c.citas / c.leads) * 100).toFixed(1)) : 0 }))
+    .map((c) => {
+      const tc = c.tratCount || {};
+      let tratamiento = null;
+      let best = 0;
+      for (const k of ['implantologia', 'ortodoncia', 'estetica']) {
+        if ((tc[k] || 0) > best) { best = tc[k]; tratamiento = k; }
+      }
+      const { tratCount, ...rest } = c;
+      return { ...rest, tratamiento, conv: c.leads > 0 ? parseFloat(((c.citas / c.leads) * 100).toFixed(1)) : 0 };
+    })
     .sort((a, b) => b.citas - a.citas);
 
   const segmentos = { hayPrevios };
