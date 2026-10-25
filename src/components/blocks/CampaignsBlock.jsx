@@ -337,7 +337,7 @@ export default function CampaignsBlock({ data }) {
       <Podium rows={rows} />
 
       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
-        Pulsa un tratamiento para ver sus campañas, y una campaña para ver sus leads. <b style={{ fontWeight: 600 }}>Contact.</b> son los que cogieron el teléfono; <b style={{ fontWeight: 600 }}>Asist.</b> los que acudieron a la cita.
+        Pulsa un tratamiento para ver sus campañas, y una campaña para ver sus leads. <b style={{ fontWeight: 600 }}>Contact.</b> son los que cogieron el teléfono; <b style={{ fontWeight: 600 }}>Asist.</b> los que acudieron a la cita (por fecha de cita, por eso puede incluir leads que entraron otro mes).
       </div>
 
       {groups.map((g) => (

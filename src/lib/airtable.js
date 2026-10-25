@@ -153,6 +153,16 @@ function isDemoPhone(phone) {
   return DEMO_PHONES.has(digits) || DEMO_PHONES.has('+' + digits) || DEMO_PHONES.has(digits.slice(-9));
 }
 
+// Registros de PRUEBA: llamadas cargadas a mano para tests. Se marcan con un
+// lead_id que empieza por "TEST-" (ej. "TEST-l:7100000186"). No deben contar en
+// NINGUNA métrica de rendimiento ni aparecer en los listados de llamadas ni en
+// las campañas; lo único donde sí suman es en los minutos/coste facturables,
+// porque son minutos reales de la centralita.
+function isTestRecord(rec) {
+  const lid = rec && rec.lead_id != null ? String(rec.lead_id).trim() : '';
+  return /^test-/i.test(lid);
+}
+
 const OBJECTION_MAP = [
   { category: 'Precio', patterns: ['precio', 'caro', 'coste', 'cost', 'dinero', 'presupuesto', 'financ', 'pagar', 'económic', 'barato', 'money'] },
   { category: 'No interesado', patterns: ['no interesa', 'no quiero', 'no necesit', 'no me interesa', 'not interested', 'sin interés'] },
@@ -312,8 +322,11 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     ),
     (c) => c.call_id || c._recordId
   );
+  // Excluimos las llamadas de prueba (lead_id "TEST-...") de "calls": así quedan
+  // fuera de todas las métricas y listados. Siguen en allCallsRaw, que es lo que
+  // usa el cálculo de minutos/coste facturable, por lo que sí suman en minutos.
   const calls = allCallsRaw.filter(
-    (c) => c.lead_id || (c.phone && leadByPhone.has(phoneKey(c.phone)))
+    (c) => !isTestRecord(c) && (c.lead_id || (c.phone && leadByPhone.has(phoneKey(c.phone))))
   );
 
   const appointments = dedupBy(
@@ -884,14 +897,13 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     .map((o) => ({ ...o, pct: Math.round((o.count / totalObj) * 100) }));
 
   const campMap = {};
-  const leadCampKey = new Map();
+  const nuevaCampania = (camp, ad) => ({ campaña: camp, anuncio: ad, leads: 0, llamados: 0, contactados: 0, citas: 0, asistencias: 0, tratCount: { implantologia: 0, ortodoncia: 0, estetica: 0 }, detalles: [] });
   periodLeads.forEach((l) => {
     const camp = l.campaign_name || 'Sin campaña';
     const ad = l.adset_name || 'Sin anuncio';
     const key = `${camp}|||${ad}`;
-    if (!campMap[key]) campMap[key] = { campaña: camp, anuncio: ad, leads: 0, llamados: 0, contactados: 0, citas: 0, asistencias: 0, tratCount: { implantologia: 0, ortodoncia: 0, estetica: 0 }, detalles: [] };
+    if (!campMap[key]) campMap[key] = nuevaCampania(camp, ad);
     const lid = String(l.lead_id).trim();
-    leadCampKey.set(lid, key);
     const tl = tratamientoLead(l);
     if (tl && campMap[key].tratCount[tl] !== undefined) campMap[key].tratCount[tl] += 1;
     const agendado = agendadaLeadIds.has(lid);
@@ -914,15 +926,24 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
       estado: agendado ? 'Agendado' : contactado ? 'Contactado' : 'Sin respuesta',
     });
   });
-  // Asistencias por campaña: cruzamos de vuelta las citas ya pasadas a las que
-  // de verdad se acudió (asistenciaAppts) con la campaña por la que entró el
-  // lead. Así medimos no solo qué campaña agenda más, sino a cuál se asiste más.
+  // Asistencias por campaña: cruzamos de vuelta cada cita ya pasada a la que se
+  // acudió (asistenciaAppts) con la campaña por la que entró el lead, AUNQUE el
+  // lead entrara en un mes anterior y su cita caiga en este periodo. Así la suma
+  // de asistencias de las campañas cuadra con el bloque de asistencia (que cuenta
+  // por fecha de cita). Si esa campaña aún no tiene fila en el periodo, la creamos.
   asistenciaAppts.forEach((a) => {
     if (!asistioACita(a)) return;
-    const lid = a.lead_id ? String(a.lead_id).trim() : null;
-    if (!lid) return;
-    const key = leadCampKey.get(lid);
-    if (key && campMap[key]) campMap[key].asistencias += 1;
+    const lead = resolveLead(a);
+    if (!lead) return; // sin lead resoluble no se puede atribuir a una campaña
+    const camp = lead.campaign_name || 'Sin campaña';
+    const ad = lead.adset_name || 'Sin anuncio';
+    const key = `${camp}|||${ad}`;
+    if (!campMap[key]) {
+      campMap[key] = nuevaCampania(camp, ad);
+      const tl = tratamientoLead(lead);
+      if (tl && campMap[key].tratCount[tl] !== undefined) campMap[key].tratCount[tl] += 1;
+    }
+    campMap[key].asistencias += 1;
   });
 
   // Tratamiento dominante de cada campaña: el más frecuente entre sus leads
