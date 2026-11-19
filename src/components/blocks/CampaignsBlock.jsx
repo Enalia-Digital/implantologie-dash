@@ -283,25 +283,21 @@ function TreatmentGroup({ group, open, onToggle, bestKey, openKey, setOpenKey })
   );
 }
 
-export default function CampaignsBlock({ data }) {
-  const [openKey, setOpenKey] = useState(null);
-  const [openGroups, setOpenGroups] = useState(null);
-  const rows = data.campanas;
-  if (!rows || rows.length === 0) return null;
+// Colores de plataforma: Meta en el morado de marca, Google en azul Google.
+const PLATFORMS = [
+  { key: 'meta', label: 'Meta Ads', color: '#BF00FF' },
+  { key: 'google', label: 'Google Ads', color: '#4285F4' },
+];
 
-  // Campaña con más citas en todo el conjunto: lleva el badge "MEJOR".
-  const bestRow = rows.reduce((best, r) => (r.citas > best.citas ? r : best), rows[0]);
-  const bestKey = bestRow.citas > 0 ? `${bestRow.campaña}|||${bestRow.anuncio}` : null;
-
-  // Agrupamos por tratamiento. Las filas ya vienen ordenadas por citas; dentro
-  // de cada grupo se conserva ese orden. Los grupos se ordenan por más leads.
+// Agrupa un subconjunto de campañas por tratamiento, ordenado por más leads.
+function buildGroups(rows) {
   const buckets = { estetica: [], implantologia: [], ortodoncia: [], otras: [] };
   rows.forEach((r) => {
     const k = buckets[r.tratamiento] ? r.tratamiento : 'otras';
     buckets[k].push(r);
   });
   const sumBy = (arr, f) => arr.reduce((s, r) => s + (f(r) || 0), 0);
-  let groups = GROUPS_DEF
+  const groups = GROUPS_DEF
     .map((g) => ({
       ...g,
       rows: buckets[g.key],
@@ -319,9 +315,80 @@ export default function CampaignsBlock({ data }) {
     });
   }
   groups.sort((a, b) => b.leads - a.leads);
+  return groups;
+}
 
-  // Por defecto abrimos el grupo con más leads; el resto cerrados. El usuario
-  // puede abrir/cerrar cada uno y tener los tres abiertos a la vez.
+function MetricMini({ label, value, sub, color }) {
+  return (
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontSize: 10, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 600, color: color || 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// Comparativa Meta vs Google: intención de agendamiento y de asistencia.
+function ComparativaCard({ comparativa }) {
+  if (!comparativa || comparativa.length === 0) return null;
+  const byKey = Object.fromEntries(comparativa.map((c) => [c.key, c]));
+  return (
+    <Card style={{ padding: 'clamp(16px, 3vw, 20px)', marginBottom: 16 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Comparativa Meta vs Google</div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16 }}>
+        Intención de <b style={{ fontWeight: 600 }}>agendamiento</b> (citas sobre leads) y de <b style={{ fontWeight: 600 }}>asistencia</b> (acuden sobre citas confirmadas) de cada plataforma.
+      </div>
+      <div className="cmp-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {PLATFORMS.map((p) => {
+          const c = byKey[p.key] || { leads: 0, citas: 0, asistencias: 0, tasaAgendamiento: null, tasaAsistencia: null };
+          return (
+            <div key={p.key} style={{ border: '1px solid var(--border-hairline)', borderRadius: 14, padding: '14px 16px', background: 'var(--bg-card)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: p.color }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{p.label}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <MetricMini label="Leads" value={fmt(c.leads)} />
+                <MetricMini label="Agendam." value={c.tasaAgendamiento === null ? '—' : fmtPct(c.tasaAgendamiento)} sub={`${fmt(c.citas)} citas`} color={p.color} />
+                <MetricMini label="Asistencia" value={c.tasaAsistencia === null ? '—' : fmtPct(c.tasaAsistencia)} sub={`${fmt(c.asistencias)} acuden`} color="var(--green)" />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <style>{`@media (max-width: 560px) { .cmp-grid { grid-template-columns: 1fr !important; } }`}</style>
+    </Card>
+  );
+}
+
+function PlatformSection({ plataforma, rows, openKey, setOpenKey }) {
+  const [openGroups, setOpenGroups] = useState(null);
+  const meta = PLATFORMS.find((p) => p.key === plataforma);
+
+  const header = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '20px 0 12px' }}>
+      <span style={{ width: 11, height: 11, borderRadius: 3, background: meta.color }} />
+      <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>{meta.label}</span>
+    </div>
+  );
+
+  if (!rows || rows.length === 0) {
+    return (
+      <div>
+        {header}
+        <Card style={{ padding: '28px 20px', textAlign: 'center', border: '1px dashed var(--border-hairline)' }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>Aún no hay datos de {meta.label}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            Aparecerán aquí automáticamente en cuanto entren leads marcados como {meta.label} en Airtable.
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  const bestRow = rows.reduce((best, r) => (r.citas > best.citas ? r : best), rows[0]);
+  const bestKey = bestRow.citas > 0 ? `${bestRow.campaña}|||${bestRow.anuncio}` : null;
+  const groups = buildGroups(rows);
   const defaultOpen = groups.length > 0 ? new Set([groups[0].key]) : new Set();
   const openSet = openGroups ?? defaultOpen;
   const toggleGroup = (k) => {
@@ -331,15 +398,9 @@ export default function CampaignsBlock({ data }) {
   };
 
   return (
-    <section>
-      <SectionLabel>Rendimiento de Campañas</SectionLabel>
-
+    <div>
+      {header}
       <Podium rows={rows} />
-
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
-        Pulsa un tratamiento para ver sus campañas, y una campaña para ver sus leads. <b style={{ fontWeight: 600 }}>Contact.</b> son los que cogieron el teléfono; <b style={{ fontWeight: 600 }}>Asist.</b> los que acudieron a la cita (por fecha de cita, por eso puede incluir leads que entraron otro mes).
-      </div>
-
       {groups.map((g) => (
         <TreatmentGroup
           key={g.key}
@@ -351,8 +412,34 @@ export default function CampaignsBlock({ data }) {
           setOpenKey={setOpenKey}
         />
       ))}
+    </div>
+  );
+}
 
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
+export default function CampaignsBlock({ data }) {
+  const [openKey, setOpenKey] = useState(null);
+  const rows = data.campanas || [];
+  const comparativa = data.comparativaPlataformas;
+  const hasAny = rows.length > 0 || (comparativa && comparativa.some((c) => c.leads > 0));
+  if (!hasAny) return null;
+
+  const metaRows = rows.filter((r) => r.plataforma !== 'google');
+  const googleRows = rows.filter((r) => r.plataforma === 'google');
+
+  return (
+    <section>
+      <SectionLabel>Rendimiento de Campañas</SectionLabel>
+
+      <ComparativaCard comparativa={comparativa} />
+
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
+        Pulsa un tratamiento para ver sus campañas, y una campaña para ver sus leads. <b style={{ fontWeight: 600 }}>Contact.</b> son los que cogieron el teléfono; <b style={{ fontWeight: 600 }}>Asist.</b> los que acudieron a la cita (por fecha de cita, por eso puede incluir leads que entraron otro mes).
+      </div>
+
+      <PlatformSection plataforma="meta" rows={metaRows} openKey={openKey} setOpenKey={setOpenKey} />
+      <PlatformSection plataforma="google" rows={googleRows} openKey={openKey} setOpenKey={setOpenKey} />
+
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 10, lineHeight: 1.5 }}>
         * Ordenado por número de citas. La foto del anuncio no se puede mostrar aquí: no tenemos acceso al portafolio de anuncios de Meta.
       </div>
     </section>
