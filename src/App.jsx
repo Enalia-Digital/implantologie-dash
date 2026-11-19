@@ -8,6 +8,7 @@ import CalendarView from './pages/CalendarView';
 import Calculator from './pages/Calculator';
 import Reports from './pages/Reports';
 import Alertas from './pages/Alertas';
+import PanelFechas from './pages/PanelFechas';
 import { IS_DEMO } from './data/demoMode';
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
           {!IS_DEMO && <Route path="/calculadora" element={<Calculator />} />}
           {!IS_DEMO && <Route path="/reportes" element={<Reports />} />}
           <Route path="/alertas" element={<Alertas />} />
+          {!IS_DEMO && <Route path="/panel-fechas" element={<PanelFechas />} />}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </ClinicProvider>

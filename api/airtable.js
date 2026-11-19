@@ -21,7 +21,13 @@ const FIELDS = {
     'fldGmGucSFIxPB1yd', // ha_acudido
     'fldsXibskwiGbSr0U', // last_contact_at
     'fldqPNT9QE4RsBWbm', // appointment_id
-    'fldTh6L03bGGj43Em', // created_at (fecha real de entrada)
+    'fldTh6L03bGGj43Em', // updated_at (ultima actualizacion, NO entrada)
+    'fldalP4V53XLDNvwh', // acepta_llamada_fin_semana
+    'fld4IchVajItQfXXi', // Creada (createdTime, fecha de entrada inmutable)
+    'fld2Eg5ntWY6VmTgV', // fecha_meta (fecha real de entrada en Meta)
+    'fld7flr3K1F7NXHeQ', // solo_mes_no_historico
+    'fldnjCVGnxChi8Iu3', // tratamiento (implantologia / ortodoncia / estetica)
+    'fld3SEhU1u4bcfvp3', // plataforma (meta_ads / google_ads)
   ],
   calls: [
     'fldJPcVfHrXDdd5h2', // call_id
@@ -49,6 +55,10 @@ const FIELDS = {
     'fldOcyUlA41RqNgUn', // showed_up
     'fldiY9gt8q0jWTegZ', // created_at
     'fldHANxTYxcrjdjY8', // phone
+    'flds9D7xefXHJVWgB', // UID (cal.com booking uid)
+    'fldeexdjxB54w3ZUF', // confirmo (si / no / no_preguntado)
+    'fldtM0FpZIA5YIJnA', // recordatorio_canal (whatsapp / llamada)
+    'flddmgFkeVutoMSKj', // semaforo (pendiente / verde / amarillo / rojo / rescate)
   ],
   call_tasks: [
     'fldGbpq0zFjNSWzf4', // task_id
@@ -62,6 +72,8 @@ const FIELDS = {
     'fldQBiLSOV66Aris5', // max_attempts
     'fldif2AITDnZde44I', // callback_reason
     'fld8GG7VJPVwnCypC', // created_at
+    'fldLZUgY2c8Mh01li', // updated_at (ultima edicion)
+    'fldX871g9RNJAWcXt', // completed_at
   ],
 };
 
@@ -122,6 +134,12 @@ function fieldMap(tableName) {
       fldsXibskwiGbSr0U: 'last_contact_at',
       fldqPNT9QE4RsBWbm: 'appointment_id',
       fldTh6L03bGGj43Em: 'created_at',
+      fldalP4V53XLDNvwh: 'acepta_llamada_fin_semana',
+      fld4IchVajItQfXXi: 'fecha_creada',
+      fld2Eg5ntWY6VmTgV: 'fecha_meta',
+      fld7flr3K1F7NXHeQ: 'solo_mes_no_historico',
+      fldnjCVGnxChi8Iu3: 'tratamiento',
+      fld3SEhU1u4bcfvp3: 'plataforma',
     },
     calls: {
       fldJPcVfHrXDdd5h2: 'call_id',
@@ -149,6 +167,10 @@ function fieldMap(tableName) {
       fldOcyUlA41RqNgUn: 'showed_up',
       fldiY9gt8q0jWTegZ: 'created_at',
       fldHANxTYxcrjdjY8: 'phone',
+      flds9D7xefXHJVWgB: 'uid',
+      fldeexdjxB54w3ZUF: 'confirmo',
+      fldtM0FpZIA5YIJnA: 'recordatorio_canal',
+      flddmgFkeVutoMSKj: 'semaforo',
     },
     call_tasks: {
       fldGbpq0zFjNSWzf4: 'task_id',
@@ -162,6 +184,8 @@ function fieldMap(tableName) {
       fldQBiLSOV66Aris5: 'max_attempts',
       fldif2AITDnZde44I: 'callback_reason',
       fld8GG7VJPVwnCypC: 'created_at',
+      fldLZUgY2c8Mh01li: 'updated_at',
+      fldX871g9RNJAWcXt: 'completed_at',
     },
   };
   return maps[tableName];

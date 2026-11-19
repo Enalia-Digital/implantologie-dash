@@ -47,9 +47,13 @@ function KpiCard({ label, children, sub, accent }) {
 }
 
 export default function KpiBlock({ data, deps, vista = 'activacion' }) {
-  const { period } = useClinic();
+  const { period, activeClinic } = useClinic();
   const periodoTxt = PERIODO_LABEL[period] || '';
   const seg = data.segmentos;
+  // Solo enseñamos "Total llamadas" en vista General: las llamadas sin
+  // lead_id (que son la mayoría) no se pueden atribuir a una clínica, así
+  // que la suma por clínica no cuadraría con el total.
+  const showTotalLlamadas = activeClinic === 'general';
 
   // Universo consistente: los ratios "Agendamiento / Contactados" y
   // "Agendamiento / Leads" usan LEADS con cita nueva (no numero de citas)
@@ -72,10 +76,18 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
     citasNoShow: data.citasNoShow,
     tasaNoShow: data.tasaNoShow,
     totalLlamadas: data.totalLlamadas,
+    // Total facturable del periodo (todo lo que suena la centralita, incluye
+    // webcalls sin lead_id). Se muestra tal cual en el KPI "Total llamadas".
+    totalLlamadasFacturables: isNum(data.totalLlamadasFacturables)
+      ? data.totalLlamadasFacturables
+      : data.totalLlamadas,
     llamadasNuevas: data.llamadasNuevas != null ? data.llamadasNuevas : data.totalLlamadas,
-    intentosPorLead: data.intentosPorLeadNuevo != null
-      ? data.intentosPorLeadNuevo
-      : (data.totalLeads > 0 ? data.totalLlamadas / data.totalLeads : null),
+    // "Intentos para agendar": llamadas a LEADS (solo las que tienen lead_id,
+    // no webcalls ni tests) del periodo entre leads distintos con cita nueva.
+    // Refleja el esfuerzo real de la maquina de llamada por cada cita cerrada.
+    intentosPorLead: leadsAgendadosNuevos > 0
+      ? data.totalLlamadas / leadsAgendadosNuevos
+      : null,
     tasaAgendamiento: data.totalLeads > 0 ? (leadsAgendadosNuevos / data.totalLeads) * 100 : null,
     tasaReunion: data.leadsContactados > 0 ? (leadsAgendadosNuevos / data.leadsContactados) * 100 : null,
     tiempoRespuestaSeg: data.tiempoRespuestaSeg,
@@ -139,15 +151,17 @@ export default function KpiBlock({ data, deps, vista = 'activacion' }) {
         >
           <CountUpValue value={m.citasNoShow} color={m.citasNoShow > 0 ? 'var(--red)' : 'var(--text-muted)'} deps={tabDeps} />
         </KpiCard>
+        {showTotalLlamadas && (
+          <KpiCard
+            label="Total llamadas"
+            sub={<span style={{ color: 'var(--text-muted)' }}>{periodoTxt}</span>}
+          >
+            <CountUpValue value={m.totalLlamadasFacturables} deps={tabDeps} />
+          </KpiCard>
+        )}
         <KpiCard
-          label="Llamadas a leads entrantes"
-          sub={<span style={{ color: 'var(--text-muted)' }}>{periodoTxt}</span>}
-        >
-          <CountUpValue value={m.llamadasNuevas} deps={tabDeps} />
-        </KpiCard>
-        <KpiCard
-          label="Intentos / Lead"
-          sub={<span style={{ color: 'var(--text-muted)' }}>llamadas por lead nuevo</span>}
+          label="Intentos para agendar"
+          sub={<span style={{ color: 'var(--text-muted)' }}>llamadas a leads del periodo ÷ leads con cita nueva</span>}
         >
           <CountUpValue value={m.intentosPorLead} decimals={1} deps={tabDeps} />
         </KpiCard>

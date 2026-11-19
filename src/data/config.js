@@ -32,6 +32,12 @@ export const leadsPreviosIds = [
 // Respaldo por fecha, solo se usa si leadsPreviosIds está vacía.
 export const fechaInicioEnalia = '2026-08-31';
 
+// Desde esta fecha el workflow marca los callbacks agendados como 'agendado'
+// (antes se usaba 'completed'). La métrica de repesca solo cuenta los tasks
+// con updated_at a partir de aquí, para no arrastrar datos antiguos poco
+// fiables. Es un corte FIJO: no cambia al mover el periodo del dashboard.
+export const fechaInicioRepesca = '2026-10-01';
+
 export const defaultConfig = {
   baseAgendamiento: 25,
   baseAsistencia: 25,

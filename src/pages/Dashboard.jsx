@@ -6,6 +6,7 @@ import AppLayout from '../components/layout/AppLayout';
 import KpiBlock from '../components/blocks/KpiBlock';
 import FirstCallBlock from '../components/blocks/FirstCallBlock';
 import RetriesBlock from '../components/blocks/RetriesBlock';
+import WeekendBlock from '../components/blocks/WeekendBlock';
 import AttendanceBlock from '../components/blocks/AttendanceBlock';
 import FunnelBlock from '../components/blocks/FunnelBlock';
 import GoalsBlock from '../components/blocks/GoalsBlock';
@@ -40,7 +41,7 @@ function buildByClinicForReport(data) {
       totalLeads: s.leads,
       leadsContactados: Math.round(s.leads * 0.92),
       citasAgendadas: s.citas,
-      citasAsistidas: null,
+      citasAsistidas: s.asistencias ?? null,
       totalLlamadas: null,
       tiempoRespuestaSeg: null,
     },
@@ -67,6 +68,7 @@ export default function Dashboard() {
     { id: 'b-evolution', el: <EvolutionBlock data={data} /> },
     { id: 'b-first-call', el: <FirstCallBlock data={data} /> },
     { id: 'b-retries', el: <RetriesBlock data={data} /> },
+    { id: 'b-weekend', el: <WeekendBlock data={data} /> },
     { id: 'b-goals', el: <GoalsBlock data={data} /> },
     isGeneral && { id: 'b-clinics', el: <ClinicDistributionBlock data={data} /> },
     { id: 'b-objections', el: <ObjectionsBlock data={data} /> },

@@ -192,10 +192,96 @@ function AlertaCard({ item, onResolved, index }) {
         </button>
       </div>
 
+      {item.rescheduleUrl && (
+        <a
+          href={item.rescheduleUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="alert-btn alert-btn-reschedule"
+        >
+          <svg width="14" height="14" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M13 7.5A5.5 5.5 0 1 1 11.5 3.7" />
+            <path d="M13 2v3.5H9.5" />
+          </svg>
+          Reagendar
+        </a>
+      )}
+
       {state === 'error' && (
         <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 2 }}>
           {error || 'Error al guardar. Reintenta.'}
         </div>
+      )}
+    </article>
+  );
+}
+
+function confInfo(item) {
+  if (item.confirmo === 'si') {
+    const canal = item.recordatorioCanal === 'whatsapp' ? 'WhatsApp'
+      : item.recordatorioCanal === 'llamada' ? 'llamada' : null;
+    return {
+      label: canal ? `Confirmada · ${canal}` : 'Confirmada',
+      color: 'var(--green)', bg: 'rgba(52, 199, 138, 0.12)', border: 'rgba(52, 199, 138, 0.4)',
+    };
+  }
+  if (item.confirmo === 'no') {
+    return { label: 'No confirma', color: 'var(--red)', bg: 'rgba(230, 92, 100, 0.12)', border: 'rgba(230, 92, 100, 0.4)' };
+  }
+  return { label: 'Sin confirmar', color: 'var(--text-muted)', bg: 'var(--bg-hover)', border: 'var(--border-hairline)' };
+}
+
+function ProximaCard({ item, index }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), index * 40);
+    return () => clearTimeout(t);
+  }, [index]);
+  const conf = confInfo(item);
+  return (
+    <article
+      style={{
+        background: 'var(--card-bg)', border: '1px solid var(--border-hairline)',
+        borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8,
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? 'translateY(0)' : 'translateY(6px)',
+        transition: `opacity 220ms ${EASE}, transform 260ms ${EASE}`,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.25 }}>{item.nombre}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+            {CLINIC_LABEL[item.clinicKey] || item.clinicRaw || 'Sin clínica'}
+          </div>
+        </div>
+        <span style={{
+          fontSize: 10, fontWeight: 600, letterSpacing: '0.02em', whiteSpace: 'nowrap',
+          padding: '3px 9px', borderRadius: 999,
+          background: conf.bg, color: conf.color, border: `1px solid ${conf.border}`,
+        }}>
+          {conf.label}
+        </span>
+      </div>
+
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+        {fmtDateBold(item.appointmentStart)}
+      </div>
+
+      {item.phone && (
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+          {fmtPhone(item.phone)}
+        </div>
+      )}
+
+      {item.rescheduleUrl && (
+        <a href={item.rescheduleUrl} target="_blank" rel="noopener noreferrer" className="alert-btn alert-btn-reschedule" style={{ marginTop: 2 }}>
+          <svg width="14" height="14" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M13 7.5A5.5 5.5 0 1 1 11.5 3.7" />
+            <path d="M13 2v3.5H9.5" />
+          </svg>
+          Reagendar
+        </a>
       )}
     </article>
   );
@@ -209,6 +295,11 @@ export default function Alertas() {
   useEffect(() => { setFilter(activeClinic); }, [activeClinic]);
 
   const [dismissed, setDismissed] = useState(() => new Set());
+
+  const proximas = data?.citasProximas || [];
+  const proximasVisible = useMemo(() => (
+    proximas.filter((p) => filter === 'general' || p.clinicKey === filter)
+  ), [proximas, filter]);
 
   const pendientes = data?.citasPendientesConfirmar || [];
   const visible = useMemo(() => {
@@ -328,6 +419,43 @@ export default function Alertas() {
             <AlertaCard key={item.recordId} item={item} index={i} onResolved={onResolved} />
           ))}
         </div>
+
+        <section style={{ marginTop: 40 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+              Próximas citas
+            </h2>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {loading ? 'Cargando…' : `${proximasVisible.length} por venir`}
+            </span>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 0, marginBottom: 16, maxWidth: 680, lineHeight: 1.55 }}>
+            Citas que aún no han pasado. Tras el recordatorio por WhatsApp o llamada, aquí se ve si el
+            paciente <b style={{ fontWeight: 600 }}>ha confirmado</b> la asistencia o no.
+          </p>
+
+          {!loading && proximasVisible.length === 0 && (
+            <div style={{
+              padding: '40px 24px', textAlign: 'center',
+              border: '1px dashed var(--border-hairline)', borderRadius: 12, background: 'var(--card-bg)',
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)' }}>No hay próximas citas</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                No hay citas futuras en este filtro.
+              </div>
+            </div>
+          )}
+
+          <div className="alerts-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: 14,
+          }}>
+            {proximasVisible.map((item, i) => (
+              <ProximaCard key={item.recordId} item={item} index={i} />
+            ))}
+          </div>
+        </section>
       </div>
 
       <style>{`
@@ -404,6 +532,17 @@ export default function Alertas() {
           background: rgba(230, 92, 100, 0.12);
           border-color: rgba(230, 92, 100, 0.4);
           color: var(--red);
+        }
+        .alert-btn-reschedule {
+          margin-top: 8px;
+          width: 100%;
+          text-decoration: none;
+          color: var(--text-secondary);
+        }
+        .alert-btn-reschedule:hover {
+          background: var(--accent-dim);
+          border-color: var(--accent-border);
+          color: var(--accent);
         }
         .alert-refresh {
           display: inline-flex; align-items: center; gap: 6px;

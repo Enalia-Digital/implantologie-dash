@@ -1,4 +1,4 @@
-import { defaultConfig, fechaInicioEnalia, leadsPreviosIds } from '../data/config';
+import { defaultConfig, fechaInicioEnalia, fechaInicioRepesca, leadsPreviosIds } from '../data/config';
 
 const CLINIC_MAP = {
   triana: 'triana',
@@ -12,13 +12,61 @@ const CLINIC_MAP = {
   'los palacios': 'los_palacios',
 };
 
-function leadDate(l) { return l.created_at || l._createdTime; }
+// Fecha de ENTRADA del lead. Prioriza el campo "Creada" (fecha_creada), de
+// tipo createdTime en Airtable: inmutable y explicito. Respaldo a _createdTime
+// (createdTime de la fila, equivalente). NUNCA usamos l.created_at porque ese
+// campo custom es en realidad updated_at (mutable) y hacia que un lead saltase
+// de mes al tocarlo, bajando los conteos historicos con el tiempo.
+// fecha_meta = fecha real de entrada en Meta (la escribe el backfill/n8n).
+// Es la que rige el MES del lead: una reentrada cuenta en el mes que vuelve a
+// entrar, no en el de su primera fila. Si no hay fecha_meta, caemos a la fecha
+// de creacion de la fila (Creada), que para la mayoria coincide con la entrada.
+function leadDate(l) { return l.fecha_meta || l.fecha_creada || l._createdTime || l.created_at; }
 
 function normalizeClinic(raw) {
   if (!raw) return null;
   const trimmed = String(raw).trim();
   return CLINIC_MAP[trimmed] || CLINIC_MAP[trimmed.toLowerCase()] || null;
 }
+
+// Tratamiento del lead. El select "verdad" en Airtable es el campo
+// `tratamiento` (implantologia / ortodoncia / estetica). Cuando viene vacío
+// (leads antiguos sin clasificar) lo deducimos del nombre de campaña/anuncio.
+// "estetica" es lo que el cliente llama "carillas".
+const TRATAMIENTOS = ['implantologia', 'ortodoncia', 'estetica'];
+const TRATAMIENTO_LABEL = {
+  implantologia: 'Implantología',
+  ortodoncia: 'Ortodoncia',
+  estetica: 'Carillas',
+};
+function normalizeTratamiento(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim().toLowerCase();
+  if (!s) return null;
+  if (s.startsWith('implant')) return 'implantologia';
+  if (s.startsWith('ortodon')) return 'ortodoncia';
+  if (s.startsWith('estetic') || s.startsWith('estétic') || s.includes('carilla')) return 'estetica';
+  return null;
+}
+function tratamientoLead(lead) {
+  if (!lead) return null;
+  const direct = normalizeTratamiento(lead.tratamiento);
+  if (direct) return direct;
+  const txt = `${lead.campaign_name || ''} ${lead.adset_name || ''}`.toLowerCase();
+  if (/implant/.test(txt)) return 'implantologia';
+  if (/ortodon|invisalign|bracket/.test(txt)) return 'ortodoncia';
+  if (/carilla|est[eé]tic|dise[nñ]o de sonrisa/.test(txt)) return 'estetica';
+  return null;
+}
+
+// Plataforma del lead: campo `plataforma` en Airtable (meta_ads / google_ads).
+// Los leads históricos lo tienen vacío (todo era Meta antes de abrir Google),
+// así que vacío cuenta como Meta. Solo "google_ads" cuenta como Google.
+function plataformaLead(lead) {
+  const p = lead && lead.plataforma != null ? String(lead.plataforma).trim().toLowerCase() : '';
+  return (p === 'google_ads' || p === 'google') ? 'google' : 'meta';
+}
+const PLATAFORMA_LABEL = { meta: 'Meta Ads', google: 'Google Ads' };
 
 export function periodRange(period) {
   const now = new Date();
@@ -112,6 +160,16 @@ function isDemoPhone(phone) {
   if (!phone) return false;
   const digits = String(phone).replace(/[\s\-().+]/g, '');
   return DEMO_PHONES.has(digits) || DEMO_PHONES.has('+' + digits) || DEMO_PHONES.has(digits.slice(-9));
+}
+
+// Registros de PRUEBA: llamadas cargadas a mano para tests. Se marcan con un
+// lead_id que empieza por "TEST-" (ej. "TEST-l:7100000186"). No deben contar en
+// NINGUNA métrica de rendimiento ni aparecer en los listados de llamadas ni en
+// las campañas; lo único donde sí suman es en los minutos/coste facturables,
+// porque son minutos reales de la centralita.
+function isTestRecord(rec) {
+  const lid = rec && rec.lead_id != null ? String(rec.lead_id).trim() : '';
+  return /^test-/i.test(lid);
 }
 
 const OBJECTION_MAP = [
@@ -249,16 +307,36 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   // Airtable arrastra filas totalmente vacías: sin lead_id no hay dato utilizable.
   const leads = (raw.leads || []).filter((l) => l.lead_id);
 
+  // Indice por telefono: la centralita escribe MUCHAS llamadas sin lead_id
+  // (aprox. 1 de cada 3) aunque el telefono SI corresponde a un lead conocido.
+  // Sin recuperar esas llamadas, esos leads no cuentan como contactados ni
+  // suman en los intentos por lead. Guardamos el primer lead por telefono.
+  const phoneKey = (p) => {
+    const g = String(p || '').replace(/\D/g, '');
+    return g.length >= 9 ? g.slice(-9) : g;
+  };
+  const leadByPhone = new Map();
+  leads.forEach((l) => {
+    const k = phoneKey(l.phone);
+    if (k && !leadByPhone.has(k)) leadByPhone.set(k, l);
+  });
+
   // Base cruda de llamadas: solo excluimos las filas de metadata basura de
   // Airtable. Mantenemos las WEBCALLS (sin lead_id) para el conteo de minutos
-  // facturables. Los demas calculos usan "calls" que exige lead_id.
+  // facturables. Los demas calculos usan "calls", que exige poder atribuir la
+  // llamada a un lead: por lead_id, o por telefono si el lead_id viene vacio.
   const allCallsRaw = dedupBy(
     (raw.calls || []).filter(
       (c) => !['call_outcome', 'last_objection', 'call outcome'].includes(c.call_id)
     ),
     (c) => c.call_id || c._recordId
   );
-  const calls = allCallsRaw.filter((c) => c.lead_id);
+  // Excluimos las llamadas de prueba (lead_id "TEST-...") de "calls": así quedan
+  // fuera de todas las métricas y listados. Siguen en allCallsRaw, que es lo que
+  // usa el cálculo de minutos/coste facturable, por lo que sí suman en minutos.
+  const calls = allCallsRaw.filter(
+    (c) => !isTestRecord(c) && (c.lead_id || (c.phone && leadByPhone.has(phoneKey(c.phone))))
+  );
 
   const appointments = dedupBy(
     (raw.appointments || []).filter((a) => {
@@ -278,11 +356,33 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     if (l.lead_id) leadMap.set(String(l.lead_id).trim(), l);
   });
 
-  // Matching por lead_id: es la clave real del sistema (viene de Meta Ads).
+  // Matching por lead_id (clave real del sistema, viene de Meta Ads) y, si no
+  // resuelve, por telefono como respaldo.
   const resolveLead = (rec) => {
     const lid = rec.lead_id ? String(rec.lead_id).trim() : null;
-    return lid ? leadMap.get(lid) || null : null;
+    if (lid && leadMap.has(lid)) return leadMap.get(lid);
+    const k = phoneKey(rec.phone);
+    if (k && leadByPhone.has(k)) return leadByPhone.get(k);
+    return null;
   };
+  // Devuelve el lead_id canonico de un registro (llamada/cita), resolviendo
+  // por telefono cuando el lead_id viene vacio.
+  const resolveLeadId = (rec) => {
+    const lead = resolveLead(rec);
+    if (lead && lead.lead_id) return String(lead.lead_id).trim();
+    return rec.lead_id ? String(rec.lead_id).trim() : null;
+  };
+
+  // Rellenamos el lead_id que falta en las llamadas usando el telefono, UNA
+  // sola vez. Asi TODAS las metricas por lead (contactados, intentos por lead,
+  // evolucion, historico) cuentan esas llamadas de forma coherente. Nunca
+  // sobreescribimos un lead_id que ya venga informado.
+  calls.forEach((c) => {
+    if (!c.lead_id) {
+      const lid = resolveLeadId(c);
+      if (lid) c.lead_id = lid;
+    }
+  });
 
   const demoLeadIds = new Set();
   leads.forEach((l) => {
@@ -301,16 +401,35 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     return lead ? normalizeClinic(lead.preferred_clinic_id) : null;
   };
 
+  // Leads marcados "solo mes, no historico": cuentan en su vista mensual
+  // normal, pero se excluyen del total Histórico Enalia (period === 'enalia').
+  // Son leads recuperados a mano que no deben inflar el total histórico.
+  const excluirHistorico = period === 'enalia';
+  const noHistoricoLeadIds = new Set();
+  if (excluirHistorico) {
+    leads.forEach((l) => {
+      if (l.lead_id && (l.solo_mes_no_historico === true || l.solo_mes_no_historico === 1)) {
+        noHistoricoLeadIds.add(String(l.lead_id).trim());
+      }
+    });
+  }
+  const esNoHistorico = (rec) => {
+    if (noHistoricoLeadIds.size === 0) return false;
+    const lid = resolveLeadId(rec);
+    return lid ? noHistoricoLeadIds.has(lid) : false;
+  };
+
   const filterLeads = (clinicId === 'general'
     ? leads
     : leads.filter((l) => normalizeClinic(l.preferred_clinic_id) === clinicId)
-  ).filter((l) => !isDemoPhone(l.phone));
+  ).filter((l) => !isDemoPhone(l.phone) && !noHistoricoLeadIds.has(String(l.lead_id).trim()));
 
   let periodLeads = filterLeads.filter((l) => inRange(leadDate(l), range));
 
   const allPeriodCalls = calls.filter((c) => {
     const date = c.started_at || c._createdTime;
     if (!inRange(date, range)) return false;
+    if (esNoHistorico(c)) return false;
     if (clinicId === 'general') return true;
     return callLeadClinic(c) === clinicId;
   });
@@ -320,6 +439,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   let periodAppts = appointments.filter((a) => {
     const lid = a.lead_id ? String(a.lead_id).trim() : null;
     if (lid && demoLeadIds.has(lid)) return false;
+    if (lid && noHistoricoLeadIds.has(lid)) return false;
     if (isDemoPhone(a.phone)) return false;
     // Fallback robusto: created_at puede venir mal cargado (fecha futura o
     // cruzada con appointment_start). Priorizamos created_at solo si es
@@ -401,8 +521,8 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   // exclusivamente para el KPI "Leads Contactados" y su ratio derivado.
   const contactadosEstrictoLeadIds = new Set();
   periodCalls.forEach((c) => {
-    if (!c.lead_id) return;
-    const lid = String(c.lead_id).trim();
+    const lid = resolveLeadId(c);
+    if (!lid) return;
     dialedLeadIds.add(lid);
     if (fueAtendida(c)) contactedLeadIds.add(lid);
     if (esContactoRealLead(c)) contactadosEstrictoLeadIds.add(lid);
@@ -505,18 +625,40 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   }).length;
   const citasRescate = citasAgendadas - citasNuevas;
 
-  // Cross-vista igual que citasAgendadas: las asistencias reales del periodo
-  // no cambian segun estes en pestana activacion o previos.
-  const asistidaLeadIds = new Set();
-  periodApptsAll.forEach((a) => {
-    if (a.lead_id && asistioACita(a)) asistidaLeadIds.add(String(a.lead_id).trim());
+  // --- Asistencia (shows / no-shows) ---
+  // OJO: la asistencia se mide por la FECHA REAL de la cita (appointment_start),
+  // NO por cuando se agendo (created_at). Una cita agendada en septiembre que
+  // ocurre en octubre es asistencia de OCTUBRE; una agendada en octubre para
+  // noviembre todavia no es ni asistio ni no-show. Ademas solo contamos las
+  // citas cuya fecha YA paso: las futuras siguen "pendientes de confirmar".
+  // Es cross-vista (no depende de activacion/previos), igual que citasAgendadas.
+  const ahoraAsistMs = Date.now();
+  const apptPerteneceClinica = (a) => {
+    if (clinicId === 'general') return true;
+    const apptClinic = normalizeClinic(a.clinic_id);
+    if (apptClinic) return apptClinic === clinicId;
+    const lid = a.lead_id ? String(a.lead_id).trim() : null;
+    const lead = lid ? leadMap.get(lid) : null;
+    return lead ? normalizeClinic(lead.preferred_clinic_id) === clinicId : false;
+  };
+  const asistenciaAppts = appointments.filter((a) => {
+    const lid = a.lead_id ? String(a.lead_id).trim() : null;
+    if (lid && demoLeadIds.has(lid)) return false;
+    if (lid && noHistoricoLeadIds.has(lid)) return false;
+    if (isDemoPhone(a.phone)) return false;
+    if (!a.appointment_start) return false;
+    const t = new Date(a.appointment_start).getTime();
+    if (!Number.isFinite(t) || t > ahoraAsistMs) return false; // solo citas ya pasadas
+    if (!inRange(a.appointment_start, range)) return false;
+    return apptPerteneceClinica(a);
   });
-  const citasAsistidas = periodApptsAll.filter(asistioACita).length;
-  const citasNoShow = periodApptsAll.filter(fueNoShow).length;
+
+  const citasAsistidas = asistenciaAppts.filter(asistioACita).length;
+  const citasNoShow = asistenciaAppts.filter(fueNoShow).length;
 
   // Lista detallada de asistencias/ausencias del periodo para el bloque
-  // de "Asistencias" del dashboard. Usa periodApptsAll (cross-vista).
-  const asistenciasRecientes = periodApptsAll
+  // de "Asistencias" del dashboard (por fecha real de cita, ya pasadas).
+  const asistenciasRecientes = asistenciaAppts
     .filter((a) => asistioACita(a) || fueNoShow(a))
     .map((a) => {
       const lid = a.lead_id ? String(a.lead_id).trim() : null;
@@ -551,7 +693,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   // Para cada lead con cita, contamos las llamadas del sistema (todas, no demo,
   // contestadores y 0:00 incluidos) cuyo started_at es <= created_at de la cita
   // (con 1h de margen por desfases de reloj). Buckets: 1, 2, 3, 4, 5, "+5".
-  const agendamientoPorIntentoBuckets = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, '6+': 0 };
+  const agendamientoPorIntentoBuckets = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, '11+': 0 };
   const callsPorLead = new Map();
   calls.forEach((c) => {
     if (!c.lead_id) return;
@@ -584,7 +726,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
       agendamientoPorIntentoBuckets[1] += 1;
       return;
     }
-    const key = n >= 6 ? '6+' : String(n);
+    const key = n >= 11 ? '11+' : String(n);
     agendamientoPorIntentoBuckets[key] += 1;
   });
   const agendamientoPorIntento = {
@@ -593,20 +735,45 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     sinLlamada: agendadosSinLlamada,
   };
 
+  // --- Experimento: llamada en fin de semana ---
+  // Leads del periodo que marcaron en el formulario que aceptan ser llamados
+  // en fin de semana / fuera de horario. A estos solo se les hace la PRIMERA
+  // llamada en fin de semana; los reintentos van en horario normal.
+  // Medimos: cuantos aceptan, cuantos de esos agendan, y de los agendados
+  // cuantos cerraron en esa primera llamada de fin de semana.
+  const finSemanaLeadsArr = periodLeads.filter((l) => l.acepta_llamada_fin_semana === true);
+  const finSemanaAceptan = finSemanaLeadsArr.length;
+  let finSemanaAgendados = 0;
+  let finSemanaPrimera = 0;
+  finSemanaLeadsArr.forEach((l) => {
+    const lid = String(l.lead_id).trim();
+    const tCita = primeraCitaPorLead.get(lid);
+    if (tCita === undefined) return; // sin cita
+    finSemanaAgendados += 1;
+    const llamadasDelLead = callsPorLead.get(lid) || [];
+    const n = llamadasDelLead.filter((t) => t <= tCita + HOUR_MS).length;
+    if (n <= 1) finSemanaPrimera += 1; // cerrada en la 1a llamada (la de finde)
+  });
+
   // Minutos y coste facturables: cuenta TODAS las llamadas de la centralita
-  // del periodo — nuevas, previas, webcalls (sin lead_id), demo internas.
-  // La centralita cobra por cada minuto sonado, no filtramos por tipo.
-  // El unico filtro es fecha del periodo y clinica si esta seleccionada
-  // (las webcalls sin clinica solo pueden contar en vista general).
+  // del periodo (nuevas, previas, salientes), EXCEPTO las demo internas y
+  // webcalls con telefono de prueba, que se descartan tanto en el conteo
+  // como en el coste.
   const billableCalls = allCallsRaw.filter((c) => {
     const date = c.started_at || c._createdTime;
     if (!inRange(date, range)) return false;
+    if (isDemoRecord(c)) return false;
     if (clinicId === 'general') return true;
     return callLeadClinic(c) === clinicId; // requiere lead_id => webcalls quedan fuera
   });
   const costSeconds = billableCalls.reduce((s, c) => s + (Number(c.duration_seconds) || 0), 0);
   const callMinutes = parseFloat((costSeconds / 60).toFixed(1));
   const costeLlamadas = parseFloat(((costSeconds / 60) * defaultConfig.costePorMinuto).toFixed(2));
+  // Total de llamadas facturables del periodo (incluye webcalls sin lead_id).
+  // Es el numero que ve el cliente en la factura de la centralita. periodCalls
+  // solo cuenta las que tienen lead_id, por eso "Llamadas a leads entrantes"
+  // puede salir mucho menor que este total.
+  const totalLlamadasFacturables = billableCalls.length;
   const tiempoContactoMin = billableCalls.length > 0
     ? parseFloat(((costSeconds / 60) / billableCalls.length).toFixed(1))
     : 0;
@@ -635,19 +802,27 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     });
   }
 
-  const tiempoRespuestaSeg = responseDeltas.length > 0
-    ? (() => {
-        const sorted = [...responseDeltas].sort((a, b) => a - b);
-        const mid = Math.floor(sorted.length / 2);
-        return Math.round(sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2);
-      })()
-    : null;
+  // Valor fijo por decision de negocio: el calculo real se inflaba porque
+  // muchos leads entran de noche/fuera de horario y la primera llamada sale
+  // al abrir el horario, dando medianas absurdas (p.ej. 1433 min). Hasta que
+  // el dato sea fiable (lead_id completo en calls + ventana horaria afinada)
+  // mostramos 37 s fijo. El calculo de arriba se mantiene pero no se usa.
+  const tiempoRespuestaSeg = 37;
 
   const prevRange = computePrevRange(period);
   const prevLeads = filterLeads.filter((l) => inRange(leadDate(l), prevRange));
   const leadsDelta = prevLeads.length > 0 && totalLeads > 0
     ? Math.round(((totalLeads - prevLeads.length) / prevLeads.length) * 100)
     : null;
+
+  // Clínica de una cita: la propia del registro y, si falta, la del lead.
+  const apptClinicKey = (a) => {
+    const ac = normalizeClinic(a.clinic_id);
+    if (ac) return ac;
+    const lid = a.lead_id ? String(a.lead_id).trim() : null;
+    const lead = lid ? leadMap.get(lid) : null;
+    return lead ? normalizeClinic(lead.preferred_clinic_id) : null;
+  };
 
   let porClinica = null;
   if (clinicId === 'general') {
@@ -656,16 +831,41 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     const keyMap = { triana: 'triana', los_palacios: 'losPalacios', san_jose: 'sanJose' };
     clinicIds.forEach((cid) => {
       const clinicLeads = periodLeads.filter((l) => normalizeClinic(l.preferred_clinic_id) === cid);
-      const cCitas = periodAppts.filter((a) => {
-        const ac = normalizeClinic(a.clinic_id);
-        if (ac) return ac === cid;
-        const lid = a.lead_id ? String(a.lead_id).trim() : null;
-        const lead = lid ? leadMap.get(lid) : null;
-        return lead ? normalizeClinic(lead.preferred_clinic_id) === cid : false;
-      }).length;
-      porClinica[keyMap[cid]] = { leads: clinicLeads.length, citas: cCitas };
+      const cCitas = periodAppts.filter((a) => apptClinicKey(a) === cid).length;
+      // Asistencias / ausencias: cruzamos las citas ya pasadas (asistenciaAppts)
+      // de vuelta a su clínica para marcar quién de verdad acudió.
+      const clinicAsist = asistenciaAppts.filter((a) => apptClinicKey(a) === cid);
+      const asistencias = clinicAsist.filter(asistioACita).length;
+      const ausencias = clinicAsist.filter(fueNoShow).length;
+      const confirmadas = asistencias + ausencias;
+      const tasaAsistencia = confirmadas > 0
+        ? parseFloat(((asistencias / confirmadas) * 100).toFixed(1))
+        : null;
+      porClinica[keyMap[cid]] = { leads: clinicLeads.length, citas: cCitas, asistencias, ausencias, tasaAsistencia };
     });
   }
+
+  // Ausencias por tratamiento (implantología / ortodoncia / carillas): cruzamos
+  // las citas ya pasadas con el tratamiento del lead, para ver a qué tipo de
+  // tratamiento se falta más. Respeta el filtro de clínica activo.
+  const ausenciasPorTratamiento = TRATAMIENTOS.map((k) => ({
+    key: k, label: TRATAMIENTO_LABEL[k], asistencias: 0, ausencias: 0,
+  }));
+  const tratIndex = { implantologia: 0, ortodoncia: 1, estetica: 2 };
+  asistenciaAppts.forEach((a) => {
+    const lid = a.lead_id ? String(a.lead_id).trim() : null;
+    const lead = lid ? leadMap.get(lid) : null;
+    const t = tratamientoLead(lead);
+    if (t == null || tratIndex[t] === undefined) return;
+    const o = ausenciasPorTratamiento[tratIndex[t]];
+    if (asistioACita(a)) o.asistencias += 1;
+    else if (fueNoShow(a)) o.ausencias += 1;
+  });
+  ausenciasPorTratamiento.forEach((o) => {
+    const conf = o.asistencias + o.ausencias;
+    o.confirmadas = conf;
+    o.tasaAusencia = conf > 0 ? parseFloat(((o.ausencias / conf) * 100).toFixed(1)) : null;
+  });
 
   const evolucion = buildEvolution(periodLeads, periodCalls, periodAppts, range, leadMap, agendadaLeadIds);
 
@@ -706,15 +906,22 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     .map((o) => ({ ...o, pct: Math.round((o.count / totalObj) * 100) }));
 
   const campMap = {};
+  const nuevaCampania = (camp, ad) => ({ campaña: camp, anuncio: ad, leads: 0, llamados: 0, contactados: 0, citas: 0, asistencias: 0, tratCount: { implantologia: 0, ortodoncia: 0, estetica: 0 }, platCount: { meta: 0, google: 0 }, detalles: [] });
   periodLeads.forEach((l) => {
     const camp = l.campaign_name || 'Sin campaña';
     const ad = l.adset_name || 'Sin anuncio';
     const key = `${camp}|||${ad}`;
-    if (!campMap[key]) campMap[key] = { campaña: camp, anuncio: ad, leads: 0, llamados: 0, contactados: 0, citas: 0, detalles: [] };
+    if (!campMap[key]) campMap[key] = nuevaCampania(camp, ad);
     const lid = String(l.lead_id).trim();
-    const llamado = dialedLeadIds.has(lid);
-    const contactado = contactedLeadIds.has(lid);
+    const tl = tratamientoLead(l);
+    if (tl && campMap[key].tratCount[tl] !== undefined) campMap[key].tratCount[tl] += 1;
+    campMap[key].platCount[plataformaLead(l)] += 1;
     const agendado = agendadaLeadIds.has(lid);
+    const llamado = dialedLeadIds.has(lid) || agendado;
+    // Un lead con cita SIEMPRE cuenta como contactado (se habló con él para
+    // agendar), aunque no haya una llamada >=15 s registrada. Asi nunca salen
+    // mas citas que contactados en la tabla de campañas.
+    const contactado = contactedLeadIds.has(lid) || agendado;
     campMap[key].leads++;
     if (llamado) campMap[key].llamados++;
     if (contactado) campMap[key].contactados++;
@@ -726,12 +933,79 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
       llamado,
       contactado,
       agendado,
-      estado: agendado ? 'Agendado' : contactado ? 'Contactado' : llamado ? 'Sin descolgar' : 'Sin llamar',
+      estado: agendado ? 'Agendado' : contactado ? 'Contactado' : 'Sin respuesta',
     });
   });
+  // Asistencias por campaña: cruzamos de vuelta cada cita ya pasada a la que se
+  // acudió (asistenciaAppts) con la campaña por la que entró el lead, AUNQUE el
+  // lead entrara en un mes anterior y su cita caiga en este periodo. Así la suma
+  // de asistencias de las campañas cuadra con el bloque de asistencia (que cuenta
+  // por fecha de cita). Si esa campaña aún no tiene fila en el periodo, la creamos.
+  asistenciaAppts.forEach((a) => {
+    if (!asistioACita(a)) return;
+    const lead = resolveLead(a);
+    if (!lead) return; // sin lead resoluble no se puede atribuir a una campaña
+    const camp = lead.campaign_name || 'Sin campaña';
+    const ad = lead.adset_name || 'Sin anuncio';
+    const key = `${camp}|||${ad}`;
+    if (!campMap[key]) {
+      campMap[key] = nuevaCampania(camp, ad);
+      const tl = tratamientoLead(lead);
+      if (tl && campMap[key].tratCount[tl] !== undefined) campMap[key].tratCount[tl] += 1;
+      campMap[key].platCount[plataformaLead(lead)] += 1;
+    }
+    campMap[key].asistencias += 1;
+  });
+
+  // Tratamiento dominante de cada campaña: el más frecuente entre sus leads
+  // (implantologia / ortodoncia / estetica). Sirve para agrupar la tabla de
+  // campañas en desplegables por tratamiento.
   const campanas = Object.values(campMap)
-    .map((c) => ({ ...c, conv: c.leads > 0 ? parseFloat(((c.citas / c.leads) * 100).toFixed(1)) : 0 }))
+    .map((c) => {
+      const tc = c.tratCount || {};
+      let tratamiento = null;
+      let best = 0;
+      for (const k of ['implantologia', 'ortodoncia', 'estetica']) {
+        if ((tc[k] || 0) > best) { best = tc[k]; tratamiento = k; }
+      }
+      const pc = c.platCount || {};
+      const plataforma = (pc.google || 0) > (pc.meta || 0) ? 'google' : 'meta';
+      const { tratCount, platCount, ...rest } = c;
+      return { ...rest, tratamiento, plataforma, conv: c.leads > 0 ? parseFloat(((c.citas / c.leads) * 100).toFixed(1)) : 0 };
+    })
     .sort((a, b) => b.citas - a.citas);
+
+  // Comparativa Meta vs Google: intención de agendamiento (citas/leads) y de
+  // asistencia (asistió / citas confirmadas) por plataforma, sobre los leads del
+  // periodo. Las asistencias/ausencias se cruzan por la cita ya pasada (mismo
+  // criterio que el bloque de asistencia).
+  const comparativaBase = { meta: { leads: 0, citas: 0, asistencias: 0, ausencias: 0 }, google: { leads: 0, citas: 0, asistencias: 0, ausencias: 0 } };
+  periodLeads.forEach((l) => {
+    const p = plataformaLead(l);
+    comparativaBase[p].leads += 1;
+    if (agendadaLeadIds.has(String(l.lead_id).trim())) comparativaBase[p].citas += 1;
+  });
+  asistenciaAppts.forEach((a) => {
+    const lead = resolveLead(a);
+    if (!lead) return;
+    const p = plataformaLead(lead);
+    if (asistioACita(a)) comparativaBase[p].asistencias += 1;
+    else if (fueNoShow(a)) comparativaBase[p].ausencias += 1;
+  });
+  const comparativaPlataformas = ['meta', 'google'].map((p) => {
+    const b = comparativaBase[p];
+    const confirmadas = b.asistencias + b.ausencias;
+    return {
+      key: p,
+      label: PLATAFORMA_LABEL[p],
+      leads: b.leads,
+      citas: b.citas,
+      asistencias: b.asistencias,
+      ausencias: b.ausencias,
+      tasaAgendamiento: b.leads > 0 ? parseFloat(((b.citas / b.leads) * 100).toFixed(1)) : null,
+      tasaAsistencia: confirmadas > 0 ? parseFloat(((b.asistencias / confirmadas) * 100).toFixed(1)) : null,
+    };
+  });
 
   const segmentos = { hayPrevios };
 
@@ -858,6 +1132,54 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
         phone: a.phone || lead?.phone || null,
         appointmentStatus: a.appointment_status || null,
         attendanceStatus: a.attendance_status || null,
+        confirmo: a.confirmo || null,
+        recordatorioCanal: a.recordatorio_canal || null,
+        semaforo: a.semaforo || null,
+        uid: a.uid || null,
+        rescheduleUrl: a.uid ? `https://cal.com/reschedule/${String(a.uid).trim()}` : null,
+      };
+    });
+
+  // Próximas citas: las que AÚN NO han pasado (fecha futura) y no están
+  // canceladas. Aquí viven los recordatorios: mostramos si el lead ha confirmado
+  // (confirmo si/no/no_preguntado) y por qué canal (WhatsApp o llamada).
+  const citasProximas = appointments
+    .filter((a) => {
+      const lid = a.lead_id ? String(a.lead_id).trim() : null;
+      if (lid && demoLeadIds.has(lid)) return false;
+      if (isDemoPhone(a.phone)) return false;
+      if (!a.appointment_start) return false;
+      const t = new Date(a.appointment_start).getTime();
+      if (!Number.isFinite(t) || t <= NOW_MS) return false; // solo futuras
+      const st = String(a.appointment_status || '').trim().toLowerCase();
+      if (st === 'cancelled' || st === 'cancelada') return false;
+      if (clinicId === 'general') return true;
+      const ac = normalizeClinic(a.clinic_id);
+      if (ac) return ac === clinicId;
+      const lead = lid ? leadMap.get(lid) : null;
+      return lead ? normalizeClinic(lead.preferred_clinic_id) === clinicId : false;
+    })
+    .sort((a, b) => new Date(a.appointment_start) - new Date(b.appointment_start))
+    .map((a) => {
+      const lid = a.lead_id ? String(a.lead_id).trim() : null;
+      const lead = lid ? leadMap.get(lid) : null;
+      const clinicKey = normalizeClinic(a.clinic_id)
+        || (lead ? normalizeClinic(lead.preferred_clinic_id) : null)
+        || 'otras';
+      return {
+        recordId: a._recordId,
+        appointmentId: a.appointment_id || null,
+        leadId: lid,
+        nombre: a.patient_name || lead?.full_name || 'Sin nombre',
+        clinicKey,
+        clinicRaw: a.clinic_id || lead?.preferred_clinic_id || null,
+        appointmentStart: a.appointment_start || null,
+        phone: a.phone || lead?.phone || null,
+        confirmo: a.confirmo || null,
+        recordatorioCanal: a.recordatorio_canal || null,
+        semaforo: a.semaforo || null,
+        uid: a.uid || null,
+        rescheduleUrl: a.uid ? `https://cal.com/reschedule/${String(a.uid).trim()}` : null,
       };
     });
 
@@ -886,6 +1208,33 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
   });
   const serieReintentos = _rBuckets;
 
+  // --- Repesca: citas agendadas desde callback (call_tasks) ---
+  // Corte FIJO desde fechaInicioRepesca (no depende del periodo del dashboard).
+  // Un task cuenta si su estado es 'agendado' y su updated_at (ultima edicion)
+  // es posterior al corte. Mide cuantas citas sacamos reactivando leads que no
+  // agendaron a la primera, y en cuantos intentos de media.
+  const repescaCorteMs = fechaInicioRepesca ? new Date(fechaInicioRepesca).getTime() : 0;
+  const repescaTasks = tasks.filter((t) => {
+    if (String(t.task_status || '').trim().toLowerCase() !== 'agendado') return false;
+    const upd = t.updated_at ? new Date(t.updated_at).getTime() : NaN;
+    if (!Number.isFinite(upd) || upd < repescaCorteMs) return false;
+    if (isDemoPhone(t.phone)) return false;
+    const lead = t.lead_id ? leadMap.get(String(t.lead_id).trim()) : null;
+    if (lead && isDemoPhone(lead.phone)) return false;
+    if (clinicId === 'general') return true;
+    const tClinic = normalizeClinic(t.clinic_id)
+      || (lead ? normalizeClinic(lead.preferred_clinic_id) : null);
+    return tClinic === clinicId;
+  });
+  const repescaAgendados = repescaTasks.length;
+  const repescaIntentosArr = repescaTasks
+    .map((t) => Number(t.attempt_count))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  const repescaLlamadasTotales = repescaIntentosArr.reduce((s, n) => s + n, 0);
+  const repescaIntentosMedios = repescaIntentosArr.length > 0
+    ? parseFloat((repescaLlamadasTotales / repescaIntentosArr.length).toFixed(1))
+    : null;
+
   const historico = buildHistorico(leads, calls, appointments, clinicId, leadMap, demoLeadIds);
 
   return {
@@ -897,6 +1246,13 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     citasNuevas,
     citasRescate,
     leadsAgendadosNuevos,
+    totalLlamadasFacturables,
+    repescaAgendados,
+    repescaIntentosMedios,
+    repescaLlamadasTotales,
+    finSemanaAceptan,
+    finSemanaAgendados,
+    finSemanaPrimera,
     citasAsistidas,
     citasNoShow,
     tasaNoShow,
@@ -908,12 +1264,15 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     reintentosPorLead,
     serieReintentos,
     citasPendientesConfirmar,
+    citasProximas,
     tiempoContactoMin,
     tiempoRespuestaSeg,
     costeLlamadas,
     callMinutes,
     leadsDelta,
     porClinica,
+    ausenciasPorTratamiento,
+    comparativaPlataformas,
     evolucion,
     objeciones,
     leadsLlamados,
@@ -1067,9 +1426,27 @@ function buildHistorico(allLeads, allCalls, allAppts, clinicId, leadMap, demoLea
       return lead ? normalizeClinic(lead.preferred_clinic_id) === clinicId : false;
     });
 
+    // Asistidas: por fecha REAL de la cita (appointment_start) y ya pasada,
+    // no por cuando se agendo. 'citas' (agendadas) si va por created_at.
+    const ahoraHistMs = Date.now();
+    const mAsist = allAppts.filter((a) => {
+      const lid = a.lead_id ? String(a.lead_id).trim() : null;
+      if (lid && demoLeadIds.has(lid)) return false;
+      if (isDemoPhone(a.phone)) return false;
+      if (!a.appointment_start) return false;
+      const t = new Date(a.appointment_start).getTime();
+      if (!Number.isFinite(t) || t > ahoraHistMs) return false;
+      if (!inRange(a.appointment_start, m)) return false;
+      if (clinicId === 'general') return true;
+      const ac = normalizeClinic(a.clinic_id);
+      if (ac) return ac === clinicId;
+      const lead = lid ? leadMap.get(lid) : null;
+      return lead ? normalizeClinic(lead.preferred_clinic_id) === clinicId : false;
+    });
+
     const leads = mLeads.length;
     const citas = mAppts.length;
-    const asistidas = mAppts.filter(asistioACita).length || null;
+    const asistidas = mAsist.filter(asistioACita).length || null;
 
     const secs = mCallsAll.reduce((s, c) => s + (Number(c.duration_seconds) || 0), 0);
     const coste = parseFloat(((secs / 60) * defaultConfig.costePorMinuto).toFixed(1));

@@ -97,11 +97,17 @@ export function comision(d, config) {
 }
 
 // Niveles del embudo de conversión.
+// "Agendados" usa LEADS distintos con cita nueva (leadsAgendadosNuevos) para
+// que la conversion Contactados→Agendados nunca supere el 100 % y coincida
+// con el KPI "Agendamiento / Contactados" de arriba.
 export function funnelLevels(d) {
+  const agendados = d.leadsAgendadosNuevos != null
+    ? d.leadsAgendadosNuevos
+    : (d.citasNuevas != null ? d.citasNuevas : d.citasAgendadas);
   return [
     { key: 'leads', label: 'Leads Entrantes', value: d.totalLeads, color: '#BF00FF' },
     { key: 'contactados', label: 'Contactados', value: d.leadsContactados, color: 'rgba(191,0,255,0.78)' },
-    { key: 'citas', label: 'Agendados', value: d.citasAgendadas, color: '#4D8FE8' },
+    { key: 'citas', label: 'Agendados', value: agendados, color: '#4D8FE8' },
     { key: 'asistencias', label: 'Asistidos', value: d.citasAsistidas, color: '#27AE84', striped: !isNum(d.citasAsistidas) },
   ];
 }
