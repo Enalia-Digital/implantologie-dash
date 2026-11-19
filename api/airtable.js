@@ -27,6 +27,7 @@ const FIELDS = {
     'fld2Eg5ntWY6VmTgV', // fecha_meta (fecha real de entrada en Meta)
     'fld7flr3K1F7NXHeQ', // solo_mes_no_historico
     'fldnjCVGnxChi8Iu3', // tratamiento (implantologia / ortodoncia / estetica)
+    'fld3SEhU1u4bcfvp3', // plataforma (meta_ads / google_ads)
   ],
   calls: [
     'fldJPcVfHrXDdd5h2', // call_id
@@ -55,6 +56,9 @@ const FIELDS = {
     'fldiY9gt8q0jWTegZ', // created_at
     'fldHANxTYxcrjdjY8', // phone
     'flds9D7xefXHJVWgB', // UID (cal.com booking uid)
+    'fldeexdjxB54w3ZUF', // confirmo (si / no / no_preguntado)
+    'fldtM0FpZIA5YIJnA', // recordatorio_canal (whatsapp / llamada)
+    'flddmgFkeVutoMSKj', // semaforo (pendiente / verde / amarillo / rojo / rescate)
   ],
   call_tasks: [
     'fldGbpq0zFjNSWzf4', // task_id
@@ -135,6 +139,7 @@ function fieldMap(tableName) {
       fld2Eg5ntWY6VmTgV: 'fecha_meta',
       fld7flr3K1F7NXHeQ: 'solo_mes_no_historico',
       fldnjCVGnxChi8Iu3: 'tratamiento',
+      fld3SEhU1u4bcfvp3: 'plataforma',
     },
     calls: {
       fldJPcVfHrXDdd5h2: 'call_id',
@@ -163,6 +168,9 @@ function fieldMap(tableName) {
       fldiY9gt8q0jWTegZ: 'created_at',
       fldHANxTYxcrjdjY8: 'phone',
       flds9D7xefXHJVWgB: 'uid',
+      fldeexdjxB54w3ZUF: 'confirmo',
+      fldtM0FpZIA5YIJnA: 'recordatorio_canal',
+      flddmgFkeVutoMSKj: 'semaforo',
     },
     call_tasks: {
       fldGbpq0zFjNSWzf4: 'task_id',

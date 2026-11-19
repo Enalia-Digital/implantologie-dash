@@ -59,6 +59,15 @@ function tratamientoLead(lead) {
   return null;
 }
 
+// Plataforma del lead: campo `plataforma` en Airtable (meta_ads / google_ads).
+// Los leads históricos lo tienen vacío (todo era Meta antes de abrir Google),
+// así que vacío cuenta como Meta. Solo "google_ads" cuenta como Google.
+function plataformaLead(lead) {
+  const p = lead && lead.plataforma != null ? String(lead.plataforma).trim().toLowerCase() : '';
+  return (p === 'google_ads' || p === 'google') ? 'google' : 'meta';
+}
+const PLATAFORMA_LABEL = { meta: 'Meta Ads', google: 'Google Ads' };
+
 export function periodRange(period) {
   const now = new Date();
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -897,7 +906,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     .map((o) => ({ ...o, pct: Math.round((o.count / totalObj) * 100) }));
 
   const campMap = {};
-  const nuevaCampania = (camp, ad) => ({ campaña: camp, anuncio: ad, leads: 0, llamados: 0, contactados: 0, citas: 0, asistencias: 0, tratCount: { implantologia: 0, ortodoncia: 0, estetica: 0 }, detalles: [] });
+  const nuevaCampania = (camp, ad) => ({ campaña: camp, anuncio: ad, leads: 0, llamados: 0, contactados: 0, citas: 0, asistencias: 0, tratCount: { implantologia: 0, ortodoncia: 0, estetica: 0 }, platCount: { meta: 0, google: 0 }, detalles: [] });
   periodLeads.forEach((l) => {
     const camp = l.campaign_name || 'Sin campaña';
     const ad = l.adset_name || 'Sin anuncio';
@@ -906,6 +915,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     const lid = String(l.lead_id).trim();
     const tl = tratamientoLead(l);
     if (tl && campMap[key].tratCount[tl] !== undefined) campMap[key].tratCount[tl] += 1;
+    campMap[key].platCount[plataformaLead(l)] += 1;
     const agendado = agendadaLeadIds.has(lid);
     const llamado = dialedLeadIds.has(lid) || agendado;
     // Un lead con cita SIEMPRE cuenta como contactado (se habló con él para
@@ -942,6 +952,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
       campMap[key] = nuevaCampania(camp, ad);
       const tl = tratamientoLead(lead);
       if (tl && campMap[key].tratCount[tl] !== undefined) campMap[key].tratCount[tl] += 1;
+      campMap[key].platCount[plataformaLead(lead)] += 1;
     }
     campMap[key].asistencias += 1;
   });
@@ -957,10 +968,44 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
       for (const k of ['implantologia', 'ortodoncia', 'estetica']) {
         if ((tc[k] || 0) > best) { best = tc[k]; tratamiento = k; }
       }
-      const { tratCount, ...rest } = c;
-      return { ...rest, tratamiento, conv: c.leads > 0 ? parseFloat(((c.citas / c.leads) * 100).toFixed(1)) : 0 };
+      const pc = c.platCount || {};
+      const plataforma = (pc.google || 0) > (pc.meta || 0) ? 'google' : 'meta';
+      const { tratCount, platCount, ...rest } = c;
+      return { ...rest, tratamiento, plataforma, conv: c.leads > 0 ? parseFloat(((c.citas / c.leads) * 100).toFixed(1)) : 0 };
     })
     .sort((a, b) => b.citas - a.citas);
+
+  // Comparativa Meta vs Google: intención de agendamiento (citas/leads) y de
+  // asistencia (asistió / citas confirmadas) por plataforma, sobre los leads del
+  // periodo. Las asistencias/ausencias se cruzan por la cita ya pasada (mismo
+  // criterio que el bloque de asistencia).
+  const comparativaBase = { meta: { leads: 0, citas: 0, asistencias: 0, ausencias: 0 }, google: { leads: 0, citas: 0, asistencias: 0, ausencias: 0 } };
+  periodLeads.forEach((l) => {
+    const p = plataformaLead(l);
+    comparativaBase[p].leads += 1;
+    if (agendadaLeadIds.has(String(l.lead_id).trim())) comparativaBase[p].citas += 1;
+  });
+  asistenciaAppts.forEach((a) => {
+    const lead = resolveLead(a);
+    if (!lead) return;
+    const p = plataformaLead(lead);
+    if (asistioACita(a)) comparativaBase[p].asistencias += 1;
+    else if (fueNoShow(a)) comparativaBase[p].ausencias += 1;
+  });
+  const comparativaPlataformas = ['meta', 'google'].map((p) => {
+    const b = comparativaBase[p];
+    const confirmadas = b.asistencias + b.ausencias;
+    return {
+      key: p,
+      label: PLATAFORMA_LABEL[p],
+      leads: b.leads,
+      citas: b.citas,
+      asistencias: b.asistencias,
+      ausencias: b.ausencias,
+      tasaAgendamiento: b.leads > 0 ? parseFloat(((b.citas / b.leads) * 100).toFixed(1)) : null,
+      tasaAsistencia: confirmadas > 0 ? parseFloat(((b.asistencias / confirmadas) * 100).toFixed(1)) : null,
+    };
+  });
 
   const segmentos = { hayPrevios };
 
@@ -1087,6 +1132,52 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
         phone: a.phone || lead?.phone || null,
         appointmentStatus: a.appointment_status || null,
         attendanceStatus: a.attendance_status || null,
+        confirmo: a.confirmo || null,
+        recordatorioCanal: a.recordatorio_canal || null,
+        semaforo: a.semaforo || null,
+        uid: a.uid || null,
+        rescheduleUrl: a.uid ? `https://cal.com/reschedule/${String(a.uid).trim()}` : null,
+      };
+    });
+
+  // Próximas citas: las que AÚN NO han pasado (fecha futura) y no están
+  // canceladas. Aquí viven los recordatorios: mostramos si el lead ha confirmado
+  // (confirmo si/no/no_preguntado) y por qué canal (WhatsApp o llamada).
+  const citasProximas = appointments
+    .filter((a) => {
+      const lid = a.lead_id ? String(a.lead_id).trim() : null;
+      if (lid && demoLeadIds.has(lid)) return false;
+      if (isDemoPhone(a.phone)) return false;
+      if (!a.appointment_start) return false;
+      const t = new Date(a.appointment_start).getTime();
+      if (!Number.isFinite(t) || t <= NOW_MS) return false; // solo futuras
+      const st = String(a.appointment_status || '').trim().toLowerCase();
+      if (st === 'cancelled' || st === 'cancelada') return false;
+      if (clinicId === 'general') return true;
+      const ac = normalizeClinic(a.clinic_id);
+      if (ac) return ac === clinicId;
+      const lead = lid ? leadMap.get(lid) : null;
+      return lead ? normalizeClinic(lead.preferred_clinic_id) === clinicId : false;
+    })
+    .sort((a, b) => new Date(a.appointment_start) - new Date(b.appointment_start))
+    .map((a) => {
+      const lid = a.lead_id ? String(a.lead_id).trim() : null;
+      const lead = lid ? leadMap.get(lid) : null;
+      const clinicKey = normalizeClinic(a.clinic_id)
+        || (lead ? normalizeClinic(lead.preferred_clinic_id) : null)
+        || 'otras';
+      return {
+        recordId: a._recordId,
+        appointmentId: a.appointment_id || null,
+        leadId: lid,
+        nombre: a.patient_name || lead?.full_name || 'Sin nombre',
+        clinicKey,
+        clinicRaw: a.clinic_id || lead?.preferred_clinic_id || null,
+        appointmentStart: a.appointment_start || null,
+        phone: a.phone || lead?.phone || null,
+        confirmo: a.confirmo || null,
+        recordatorioCanal: a.recordatorio_canal || null,
+        semaforo: a.semaforo || null,
         uid: a.uid || null,
         rescheduleUrl: a.uid ? `https://cal.com/reschedule/${String(a.uid).trim()}` : null,
       };
@@ -1173,6 +1264,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     reintentosPorLead,
     serieReintentos,
     citasPendientesConfirmar,
+    citasProximas,
     tiempoContactoMin,
     tiempoRespuestaSeg,
     costeLlamadas,
@@ -1180,6 +1272,7 @@ export function transformData(raw, clinicId, period, vista = 'activacion') {
     leadsDelta,
     porClinica,
     ausenciasPorTratamiento,
+    comparativaPlataformas,
     evolucion,
     objeciones,
     leadsLlamados,
