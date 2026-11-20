@@ -21,45 +21,16 @@ const NOMBRES = [
   'Beatriz Herrera', 'Álvaro Mendoza', 'Natalia Reyes', 'Sergio Aguilar', 'Verónica Peña',
 ];
 
-// Avatares SVG inline (data URI) por tratamiento. Sin dependencias externas:
-// funcionan tanto en local como en Vercel aunque no haya internet al cliente.
-function svgThumb(gradient, emoji, label) {
-  const [c1, c2] = gradient;
-  const initials = label.split(' ').slice(0, 2).map((w) => w[0] || '').join('').toUpperCase();
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${c1}"/>
-      <stop offset="1" stop-color="${c2}"/>
-    </linearGradient>
-  </defs>
-  <rect width="120" height="120" rx="20" fill="url(#g)"/>
-  <text x="60" y="70" font-size="52" text-anchor="middle" font-family="Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif">${emoji}</text>
-  <text x="60" y="104" font-size="12" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-weight="700" letter-spacing="1.5">${initials}</text>
-</svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
-
-const IMG = {
-  implantesHero:    svgThumb(['#6B00B8', '#BF00FF'], '🦷', 'All on 4'),
-  implantesCorona:  svgThumb(['#8B5CF6', '#BF00FF'], '✨', 'Implante Corona'),
-  estetica:         svgThumb(['#00B2A8', '#00E6C7'], '😁', 'Carillas Porcelana'),
-  ortodoncia:       svgThumb(['#FF7A00', '#FFB547'], '😊', 'Invisalign'),
-  consulta:         svgThumb(['#4D8FE8', '#7FB1FF'], '🎁', 'Consulta Gratis'),
-  googleImplantes:  svgThumb(['#4285F4', '#5A9CF7'], '🔍', 'Google Implantes'),
-  googleMarca:      svgThumb(['#1A73E8', '#4285F4'], '🏥', 'Google Marca'),
-};
-
 const CAMPANAS = [
-  { campaña: 'Implantes All-on-4',        anuncio: 'Sonrisa completa desde 4.900€', tratamiento: 'implantologia', plataforma: 'meta',   imagen: IMG.implantesHero },
-  { campaña: 'Implantes All-on-4',        anuncio: 'Implante + Corona 990€',        tratamiento: 'implantologia', plataforma: 'meta',   imagen: IMG.implantesCorona },
-  { campaña: 'Estética Dental Premium',   anuncio: 'Carillas de porcelana',         tratamiento: 'estetica',      plataforma: 'meta',   imagen: IMG.estetica },
-  { campaña: 'Ortodoncia Invisible',      anuncio: 'Invisalign desde 65€/mes',      tratamiento: 'ortodoncia',    plataforma: 'meta',   imagen: IMG.ortodoncia },
-  { campaña: 'Primera Consulta Gratis',   anuncio: 'Diagnóstico 3D sin coste',      tratamiento: 'implantologia', plataforma: 'meta',   imagen: IMG.consulta },
+  { campaña: 'Implantes All-on-4',        anuncio: 'Sonrisa completa desde 4.900€', tratamiento: 'implantologia', plataforma: 'meta'   },
+  { campaña: 'Implantes All-on-4',        anuncio: 'Implante + Corona 990€',        tratamiento: 'implantologia', plataforma: 'meta'   },
+  { campaña: 'Estética Dental Premium',   anuncio: 'Carillas de porcelana',         tratamiento: 'estetica',      plataforma: 'meta'   },
+  { campaña: 'Ortodoncia Invisible',      anuncio: 'Invisalign desde 65€/mes',      tratamiento: 'ortodoncia',    plataforma: 'meta'   },
+  { campaña: 'Primera Consulta Gratis',   anuncio: 'Diagnóstico 3D sin coste',      tratamiento: 'implantologia', plataforma: 'meta'   },
   // Google Ads: campañas de búsqueda
-  { campaña: 'Búsqueda · Implantes Dentales',   anuncio: 'Grupo: implantes +sevilla', tratamiento: 'implantologia', plataforma: 'google', imagen: IMG.googleImplantes },
+  { campaña: 'Búsqueda · Implantes Dentales',   anuncio: 'Grupo: implantes +sevilla', tratamiento: 'implantologia', plataforma: 'google' },
   { campaña: 'Búsqueda · Ortodoncia Invisible', anuncio: 'Grupo: invisalign',         tratamiento: 'ortodoncia',    plataforma: 'google' },
-  { campaña: 'Búsqueda · Clínica Dental',       anuncio: 'Grupo: marca + ubicación',  tratamiento: 'estetica',      plataforma: 'google', imagen: IMG.googleMarca },
+  { campaña: 'Búsqueda · Clínica Dental',       anuncio: 'Grupo: marca + ubicación',  tratamiento: 'estetica',      plataforma: 'google' },
 ];
 
 function periodDescriptor(period) {

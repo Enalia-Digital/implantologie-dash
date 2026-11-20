@@ -31,8 +31,27 @@ const GROUPS_DEF = [
 function PodiumCard({ row, place }) {
   const first = place === 1;
   const accent = first ? 'var(--accent)' : 'var(--text-secondary)';
-  const medal = place === 1 ? '👑' : place === 2 ? '🥈' : '🥉';
   const imgSize = first ? 86 : 70;
+  // Placeholder cuadrado neutro cuando no tenemos la creatividad real del anuncio.
+  // Sin emojis, sin iconos: solo el marco con el acento del podio.
+  const thumb = (
+    <div style={{ marginBottom: 12 }}>
+      <div
+        aria-hidden="true"
+        style={{
+          width: imgSize, height: imgSize, borderRadius: 14,
+          background: first
+            ? 'linear-gradient(180deg, #16161d 0%, #0b0b11 100%)'
+            : 'linear-gradient(180deg, #1a1a22 0%, #101016 100%)',
+          border: `1px solid ${first ? 'var(--accent)' : 'var(--border-subtle)'}`,
+          boxShadow: first
+            ? 'inset 0 0 0 1px rgba(191,0,255,0.25), 0 6px 18px rgba(0,0,0,0.25)'
+            : 'inset 0 0 0 1px rgba(255,255,255,0.03), 0 2px 6px rgba(0,0,0,0.18)',
+        }}
+      />
+    </div>
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
@@ -51,29 +70,7 @@ function PodiumCard({ row, place }) {
         alignSelf: 'stretch',
       }}
     >
-      {row.imagen ? (
-        <div style={{ position: 'relative', marginBottom: 10 }}>
-          <img
-            src={row.imagen}
-            alt={row.anuncio}
-            style={{
-              width: imgSize, height: imgSize, borderRadius: 14, objectFit: 'cover',
-              border: `2px solid ${first ? 'var(--accent)' : 'var(--border-subtle)'}`,
-              boxShadow: first ? '0 6px 18px rgba(191,0,255,0.25)' : '0 2px 6px rgba(15,15,25,0.08)',
-              background: 'var(--bg-hover)',
-            }}
-          />
-          <span style={{
-            position: 'absolute', top: -6, right: -8,
-            fontSize: first ? 22 : 18, lineHeight: 1,
-            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))',
-          }}>
-            {medal}
-          </span>
-        </div>
-      ) : (
-        <div style={{ fontSize: first ? 26 : 20, lineHeight: 1, marginBottom: 6 }}>{medal}</div>
-      )}
+      {thumb}
       <div style={{
         fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
         color: accent, marginBottom: first ? 10 : 8,
@@ -132,7 +129,6 @@ function Podium({ rows }) {
   return (
     <Card style={{ padding: 'clamp(16px, 3vw, 22px)', marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 14 }}>🏆</span>
         <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>Podio de campañas</span>
       </div>
       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16 }}>
