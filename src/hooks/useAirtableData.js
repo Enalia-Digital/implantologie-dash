@@ -63,9 +63,9 @@ export default function useAirtableData(clinicId, period, vista = 'activacion') 
     setLoading(true);
     setError(null);
 
-    // Modo DEMO: no llamamos a Airtable, devolvemos el dataset ficticio de IOI
-    // Aurora. Simulamos un pequeño delay para que el spinner y el fade-in se
-    // vean bien durante la presentacion.
+    // Modo DEMO: no llamamos a Airtable, devolvemos el dataset ficticio
+    // (branding Enalia Digital). Simulamos un pequeño delay para que el
+    // spinner y el fade-in se vean bien durante la presentacion.
     if (IS_DEMO) {
       await new Promise((r) => setTimeout(r, 220));
       setData(buildDemoData(period));

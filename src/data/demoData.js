@@ -1,8 +1,8 @@
-// Dataset ficticio para el modo DEMO (IOI Aurora). Genera exactamente la
-// misma estructura que `transformData` de src/lib/airtable.js, para que todos
-// los bloques del dashboard (KPIs, funnel, evolucion, campanas con podio,
-// comparativa Meta/Google, weekend, reactivacion, repesca, asistencias,
-// callbacks, top calls, etc.) funcionen sin cambios.
+// Dataset ficticio para el modo DEMO (branding Enalia Digital). Genera
+// exactamente la misma estructura que `transformData` de src/lib/airtable.js,
+// para que todos los bloques del dashboard (KPIs, funnel, evolucion,
+// campanas con podio, comparativa Meta/Google, weekend, reactivacion,
+// repesca, asistencias, callbacks, top calls, etc.) funcionen sin cambios.
 //
 // Cifras ancla pedidas por el equipo comercial:
 //   - 300 leads en el periodo
@@ -41,9 +41,9 @@ function svgThumb(gradient, emoji, label) {
 }
 
 const IMG = {
-  implantesHero:    svgThumb(['#6B00B8', '#BF00FF'], '🦷', 'All-on-4'),
+  implantesHero:    svgThumb(['#6B00B8', '#BF00FF'], '🦷', 'All on 4'),
   implantesCorona:  svgThumb(['#8B5CF6', '#BF00FF'], '✨', 'Implante Corona'),
-  estetica:         svgThumb(['#00B2A8', '#00E6C7'], '😁', 'Carillas'),
+  estetica:         svgThumb(['#00B2A8', '#00E6C7'], '😁', 'Carillas Porcelana'),
   ortodoncia:       svgThumb(['#FF7A00', '#FFB547'], '😊', 'Invisalign'),
   consulta:         svgThumb(['#4D8FE8', '#7FB1FF'], '🎁', 'Consulta Gratis'),
   googleImplantes:  svgThumb(['#4285F4', '#5A9CF7'], '🔍', 'Google Implantes'),
@@ -51,15 +51,15 @@ const IMG = {
 };
 
 const CAMPANAS = [
-  { campaña: 'Implantes All-on-4 Aurora', anuncio: 'Sonrisa completa desde 4.900€', tratamiento: 'implantologia', plataforma: 'meta',   imagen: IMG.implantesHero },
-  { campaña: 'Implantes All-on-4 Aurora', anuncio: 'Implante + Corona 990€',        tratamiento: 'implantologia', plataforma: 'meta',   imagen: IMG.implantesCorona },
-  { campaña: 'Estética Dental Premium',   anuncio: 'Carillas de porcelana Aurora',  tratamiento: 'estetica',      plataforma: 'meta',   imagen: IMG.estetica },
+  { campaña: 'Implantes All-on-4',        anuncio: 'Sonrisa completa desde 4.900€', tratamiento: 'implantologia', plataforma: 'meta',   imagen: IMG.implantesHero },
+  { campaña: 'Implantes All-on-4',        anuncio: 'Implante + Corona 990€',        tratamiento: 'implantologia', plataforma: 'meta',   imagen: IMG.implantesCorona },
+  { campaña: 'Estética Dental Premium',   anuncio: 'Carillas de porcelana',         tratamiento: 'estetica',      plataforma: 'meta',   imagen: IMG.estetica },
   { campaña: 'Ortodoncia Invisible',      anuncio: 'Invisalign desde 65€/mes',      tratamiento: 'ortodoncia',    plataforma: 'meta',   imagen: IMG.ortodoncia },
   { campaña: 'Primera Consulta Gratis',   anuncio: 'Diagnóstico 3D sin coste',      tratamiento: 'implantologia', plataforma: 'meta',   imagen: IMG.consulta },
   // Google Ads: campañas de búsqueda
-  { campaña: 'Búsqueda · Implantes Dentales',    anuncio: 'Grupo: implantes +sevilla',  tratamiento: 'implantologia', plataforma: 'google', imagen: IMG.googleImplantes },
-  { campaña: 'Búsqueda · Ortodoncia Invisible',  anuncio: 'Grupo: invisalign',          tratamiento: 'ortodoncia',    plataforma: 'google' },
-  { campaña: 'Búsqueda · Clínica Dental Aurora', anuncio: 'Grupo: marca + ubicación',   tratamiento: 'estetica',      plataforma: 'google', imagen: IMG.googleMarca },
+  { campaña: 'Búsqueda · Implantes Dentales',   anuncio: 'Grupo: implantes +sevilla', tratamiento: 'implantologia', plataforma: 'google', imagen: IMG.googleImplantes },
+  { campaña: 'Búsqueda · Ortodoncia Invisible', anuncio: 'Grupo: invisalign',         tratamiento: 'ortodoncia',    plataforma: 'google' },
+  { campaña: 'Búsqueda · Clínica Dental',       anuncio: 'Grupo: marca + ubicación',  tratamiento: 'estetica',      plataforma: 'google', imagen: IMG.googleMarca },
 ];
 
 function periodDescriptor(period) {
@@ -347,17 +347,20 @@ export function buildDemoData(period = 'last_month') {
   const objeciones = buildObjeciones(leadsContactados);
   const historico = buildHistorico();
 
-  // Agendamiento por llamada: hasta 10 intentos + 11+. Total = 180.
+  // Agendamiento por llamada: muy fuerte a la 1ª, con cola importante en
+  // los intentos 6-10 (leads que descuelgan tras varios días de insistencia).
+  // Total = 180 (= leadsAgendadosNuevos).
   const agendamientoPorIntento = {
-    buckets: { 1: 68, 2: 44, 3: 28, 4: 16, 5: 10, 6: 6, 7: 3, 8: 2, 9: 1, 10: 1, '11+': 1 },
+    buckets: { 1: 90, 2: 22, 3: 14, 4: 8, 5: 6, 6: 8, 7: 7, 8: 7, 9: 6, 10: 6, '11+': 6 },
     total: 180,
     sinLlamada: 0,
   };
 
-  // Experimento llamada en fin de semana
-  const finSemanaAceptan = 42;
-  const finSemanaAgendados = 28;
-  const finSemanaPrimera = 19;
+  // Experimento llamada en fin de semana: más gente agenda y muchos cierran
+  // ya en la primera llamada del finde.
+  const finSemanaAceptan = 58;
+  const finSemanaAgendados = 44;
+  const finSemanaPrimera = 32;
 
   // Repesca (desde octubre): citas recuperadas por callback.
   const repescaAgendados = 14;

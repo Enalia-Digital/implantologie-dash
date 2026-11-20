@@ -6,7 +6,7 @@ import { IS_DEMO } from './data/demoMode';
 import './index.css';
 
 if (IS_DEMO && typeof document !== 'undefined') {
-  document.title = 'IOI Aurora · Demo Enalia';
+  document.title = 'Enalia Digital';
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

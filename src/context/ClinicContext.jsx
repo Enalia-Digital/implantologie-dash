@@ -37,9 +37,9 @@ const DEFAULT_CLINIC = IS_DEMO ? DEMO_CLINIC_ID : 'general';
 const DEFAULT_PERIOD = IS_DEMO ? 'last_month' : 'last_90';
 
 export function ClinicProvider({ children }) {
-  // En modo demo forzamos siempre la clinica IOI Aurora y el mes pasado, sin
-  // depender de lo que haya en localStorage (los assets del cliente son de un
-  // solo mes, no queremos que se abra en semana o histórico vacío).
+  // En modo demo forzamos siempre la clinica Enalia Digital y el mes pasado,
+  // sin depender de lo que haya en localStorage (los assets del cliente son de
+  // un solo mes, no queremos que se abra en semana o histórico vacío).
   const [activeClinic, setActiveClinicState] = useState(
     () => (IS_DEMO ? DEFAULT_CLINIC : readString(CLINIC_KEY, DEFAULT_CLINIC))
   );

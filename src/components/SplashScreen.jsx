@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { IS_DEMO } from '../data/demoMode';
 
 export default function SplashScreen({ onComplete }) {
   const ref = useRef(null);
@@ -29,8 +30,14 @@ export default function SplashScreen({ onComplete }) {
             maskPosition: 'center',
           }}
         />
-        <span className="splash-x">×</span>
-        <span className="splash-clinic">Dental Implantologie</span>
+        {IS_DEMO ? (
+          <span className="splash-clinic">Enalia Digital</span>
+        ) : (
+          <>
+            <span className="splash-x">×</span>
+            <span className="splash-clinic">Dental Implantologie</span>
+          </>
+        )}
       </div>
     </div>
   );
