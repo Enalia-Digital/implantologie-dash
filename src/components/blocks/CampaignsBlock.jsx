@@ -32,6 +32,7 @@ function PodiumCard({ row, place }) {
   const first = place === 1;
   const accent = first ? 'var(--accent)' : 'var(--text-secondary)';
   const medal = place === 1 ? '👑' : place === 2 ? '🥈' : '🥉';
+  const imgSize = first ? 86 : 70;
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
@@ -50,7 +51,29 @@ function PodiumCard({ row, place }) {
         alignSelf: 'stretch',
       }}
     >
-      <div style={{ fontSize: first ? 26 : 20, lineHeight: 1, marginBottom: 6 }}>{medal}</div>
+      {row.imagen ? (
+        <div style={{ position: 'relative', marginBottom: 10 }}>
+          <img
+            src={row.imagen}
+            alt={row.anuncio}
+            style={{
+              width: imgSize, height: imgSize, borderRadius: 14, objectFit: 'cover',
+              border: `2px solid ${first ? 'var(--accent)' : 'var(--border-subtle)'}`,
+              boxShadow: first ? '0 6px 18px rgba(191,0,255,0.25)' : '0 2px 6px rgba(15,15,25,0.08)',
+              background: 'var(--bg-hover)',
+            }}
+          />
+          <span style={{
+            position: 'absolute', top: -6, right: -8,
+            fontSize: first ? 22 : 18, lineHeight: 1,
+            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.25))',
+          }}>
+            {medal}
+          </span>
+        </div>
+      ) : (
+        <div style={{ fontSize: first ? 26 : 20, lineHeight: 1, marginBottom: 6 }}>{medal}</div>
+      )}
       <div style={{
         fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
         color: accent, marginBottom: first ? 10 : 8,
@@ -440,7 +463,7 @@ export default function CampaignsBlock({ data }) {
       <PlatformSection plataforma="google" rows={googleRows} openKey={openKey} setOpenKey={setOpenKey} />
 
       <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 10, lineHeight: 1.5 }}>
-        * Ordenado por número de citas. La foto del anuncio no se puede mostrar aquí: no tenemos acceso al portafolio de anuncios de Meta.
+        * Ordenado por número de citas.
       </div>
     </section>
   );

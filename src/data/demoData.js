@@ -1,7 +1,8 @@
 // Dataset ficticio para el modo DEMO (IOI Aurora). Genera exactamente la
 // misma estructura que `transformData` de src/lib/airtable.js, para que todos
-// los bloques del dashboard (KPIs, funnel, evolucion, campanas, historico,
-// asistencias, callbacks, top calls, etc.) funcionen sin cambios.
+// los bloques del dashboard (KPIs, funnel, evolucion, campanas con podio,
+// comparativa Meta/Google, weekend, reactivacion, repesca, asistencias,
+// callbacks, top calls, etc.) funcionen sin cambios.
 //
 // Cifras ancla pedidas por el equipo comercial:
 //   - 300 leads en el periodo
@@ -20,16 +21,48 @@ const NOMBRES = [
   'Beatriz Herrera', 'Álvaro Mendoza', 'Natalia Reyes', 'Sergio Aguilar', 'Verónica Peña',
 ];
 
+// Avatares SVG inline (data URI) por tratamiento. Sin dependencias externas:
+// funcionan tanto en local como en Vercel aunque no haya internet al cliente.
+function svgThumb(gradient, emoji, label) {
+  const [c1, c2] = gradient;
+  const initials = label.split(' ').slice(0, 2).map((w) => w[0] || '').join('').toUpperCase();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${c1}"/>
+      <stop offset="1" stop-color="${c2}"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="20" fill="url(#g)"/>
+  <text x="60" y="70" font-size="52" text-anchor="middle" font-family="Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif">${emoji}</text>
+  <text x="60" y="104" font-size="12" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-weight="700" letter-spacing="1.5">${initials}</text>
+</svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+const IMG = {
+  implantesHero:    svgThumb(['#6B00B8', '#BF00FF'], '🦷', 'All-on-4'),
+  implantesCorona:  svgThumb(['#8B5CF6', '#BF00FF'], '✨', 'Implante Corona'),
+  estetica:         svgThumb(['#00B2A8', '#00E6C7'], '😁', 'Carillas'),
+  ortodoncia:       svgThumb(['#FF7A00', '#FFB547'], '😊', 'Invisalign'),
+  consulta:         svgThumb(['#4D8FE8', '#7FB1FF'], '🎁', 'Consulta Gratis'),
+  googleImplantes:  svgThumb(['#4285F4', '#5A9CF7'], '🔍', 'Google Implantes'),
+  googleMarca:      svgThumb(['#1A73E8', '#4285F4'], '🏥', 'Google Marca'),
+};
+
 const CAMPANAS = [
-  { campaña: 'Implantes All-on-4 Aurora', anuncio: 'Sonrisa completa desde 4.900€' },
-  { campaña: 'Implantes All-on-4 Aurora', anuncio: 'Implante + Corona 990€' },
-  { campaña: 'Estética Dental Premium',   anuncio: 'Carillas de porcelana Aurora' },
-  { campaña: 'Ortodoncia Invisible',      anuncio: 'Invisalign desde 65€/mes' },
-  { campaña: 'Primera Consulta Gratis',   anuncio: 'Diagnóstico 3D sin coste' },
+  { campaña: 'Implantes All-on-4 Aurora', anuncio: 'Sonrisa completa desde 4.900€', tratamiento: 'implantologia', plataforma: 'meta',   imagen: IMG.implantesHero },
+  { campaña: 'Implantes All-on-4 Aurora', anuncio: 'Implante + Corona 990€',        tratamiento: 'implantologia', plataforma: 'meta',   imagen: IMG.implantesCorona },
+  { campaña: 'Estética Dental Premium',   anuncio: 'Carillas de porcelana Aurora',  tratamiento: 'estetica',      plataforma: 'meta',   imagen: IMG.estetica },
+  { campaña: 'Ortodoncia Invisible',      anuncio: 'Invisalign desde 65€/mes',      tratamiento: 'ortodoncia',    plataforma: 'meta',   imagen: IMG.ortodoncia },
+  { campaña: 'Primera Consulta Gratis',   anuncio: 'Diagnóstico 3D sin coste',      tratamiento: 'implantologia', plataforma: 'meta',   imagen: IMG.consulta },
+  // Google Ads: campañas de búsqueda
+  { campaña: 'Búsqueda · Implantes Dentales',    anuncio: 'Grupo: implantes +sevilla',  tratamiento: 'implantologia', plataforma: 'google', imagen: IMG.googleImplantes },
+  { campaña: 'Búsqueda · Ortodoncia Invisible',  anuncio: 'Grupo: invisalign',          tratamiento: 'ortodoncia',    plataforma: 'google' },
+  { campaña: 'Búsqueda · Clínica Dental Aurora', anuncio: 'Grupo: marca + ubicación',   tratamiento: 'estetica',      plataforma: 'google', imagen: IMG.googleMarca },
 ];
 
 function periodDescriptor(period) {
-  // Ancla las etiquetas al mes anterior — el pitch comercial habla del "ultimo mes".
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
@@ -121,39 +154,97 @@ function buildAsistencias(nAsistidas, nNoShow) {
   return items.sort((a, b) => new Date(b.appointmentStart) - new Date(a.appointmentStart));
 }
 
-function buildCampanas(totalLeads, contactados, citas) {
-  const pesosLeads = [0.30, 0.24, 0.20, 0.16, 0.10];
-  const boostAgend = [1.10, 1.02, 0.95, 0.90, 1.05];
-  const rows = CAMPANAS.map((c, i) => {
-    const leads = Math.round(totalLeads * pesosLeads[i]);
-    const conta = Math.round(contactados * pesosLeads[i]);
-    const cit   = Math.min(conta, Math.round(citas * pesosLeads[i] * boostAgend[i]));
-    const conv  = leads > 0 ? parseFloat(((cit / leads) * 100).toFixed(1)) : 0;
-    const detalles = Array.from({ length: Math.min(10, leads) }, (_, j) => {
-      const idx = (i * 7 + j) % NOMBRES.length;
-      const estado = j < cit / (leads / 10) ? 'Agendado' : j < conta / (leads / 10) ? 'Contactado' : 'Sin llamar';
+function buildCampanas(totalLeads, contactados, citas, asistencias) {
+  // Split Meta/Google. Meta trae el grueso (82 %) y Google el resto.
+  const metaShare = 0.82;
+  const metaLeads = Math.round(totalLeads * metaShare);
+  const metaContact = Math.round(contactados * metaShare);
+  const metaCitas = Math.round(citas * metaShare);
+  const metaAsist = Math.round(asistencias * metaShare);
+  const googleLeads = totalLeads - metaLeads;
+  const googleContact = contactados - metaContact;
+  const googleCitas = citas - metaCitas;
+  const googleAsist = asistencias - metaAsist;
+
+  // Pesos de las 5 campañas de Meta y las 3 de Google.
+  const pesosMeta   = [0.30, 0.24, 0.20, 0.16, 0.10];
+  const pesosGoogle = [0.50, 0.30, 0.20];
+
+  const build = (plat, totLeads, totContact, totCitas, totAsist, pesos, offset) => {
+    const campsPlat = CAMPANAS.filter((c) => c.plataforma === plat);
+    return campsPlat.map((c, i) => {
+      const leads = Math.max(1, Math.round(totLeads * pesos[i]));
+      const conta = Math.max(1, Math.min(leads, Math.round(totContact * pesos[i])));
+      const cit   = Math.min(conta, Math.round(totCitas * pesos[i]));
+      const asist = Math.min(cit, Math.round(totAsist * pesos[i]));
+      const conv  = leads > 0 ? parseFloat(((cit / leads) * 100).toFixed(1)) : 0;
+      const detalles = Array.from({ length: Math.min(10, leads) }, (_, j) => {
+        const idx = (offset + i * 7 + j) % NOMBRES.length;
+        const estado = j < cit / (leads / 10) ? 'Agendado'
+          : j < conta / (leads / 10) ? 'Contactado'
+          : 'Sin respuesta';
+        return {
+          nombre: NOMBRES[idx],
+          fecha: `${(3 + j) % 28 + 1}/09`,
+          clinica: DEMO_CLINIC_NAME,
+          llamado: estado !== 'Sin respuesta',
+          contactado: estado === 'Agendado' || estado === 'Contactado',
+          agendado: estado === 'Agendado',
+          estado,
+        };
+      });
       return {
-        nombre: NOMBRES[idx],
-        fecha: `${(3 + j) % 28 + 1}/09`,
-        clinica: DEMO_CLINIC_NAME,
-        llamado: estado !== 'Sin llamar',
-        contactado: estado === 'Agendado' || estado === 'Contactado',
-        agendado: estado === 'Agendado',
-        estado,
+        ...c,
+        leads,
+        contactados: conta,
+        citas: cit,
+        asistencias: asist,
+        conv,
+        llamados: Math.round(leads * 0.98),
+        detalles,
       };
     });
-    return { ...c, leads, contactados: conta, citas: cit, conv, llamados: Math.round(leads * 0.98), detalles };
-  }).sort((a, b) => b.citas - a.citas);
+  };
+
+  const meta   = build('meta',   metaLeads,   metaContact,   metaCitas,   metaAsist,   pesosMeta,   0);
+  const google = build('google', googleLeads, googleContact, googleCitas, googleAsist, pesosGoogle, 50);
+  const rows = [...meta, ...google].sort((a, b) => b.citas - a.citas);
   return rows;
+}
+
+function buildComparativaPlataformas(rows, asistConfirmadasTotal) {
+  // Agrupa cada plataforma y calcula tasa de agendamiento (citas/leads) y
+  // tasa de asistencia (asisten / asistConfirmadas = asisten+ausentes).
+  const by = { meta: { leads: 0, citas: 0, asistencias: 0 }, google: { leads: 0, citas: 0, asistencias: 0 } };
+  rows.forEach((r) => {
+    const k = r.plataforma === 'google' ? 'google' : 'meta';
+    by[k].leads += r.leads;
+    by[k].citas += r.citas;
+    by[k].asistencias += r.asistencias;
+  });
+  const totalCitas = by.meta.citas + by.google.citas;
+  return ['meta', 'google'].map((k) => {
+    const b = by[k];
+    const sharePlataforma = totalCitas > 0 ? b.citas / totalCitas : 0;
+    const confirmadas = Math.round(asistConfirmadasTotal * sharePlataforma);
+    return {
+      key: k,
+      leads: b.leads,
+      citas: b.citas,
+      asistencias: b.asistencias,
+      tasaAgendamiento: b.leads > 0 ? parseFloat(((b.citas / b.leads) * 100).toFixed(1)) : null,
+      tasaAsistencia: confirmadas > 0 ? parseFloat(((b.asistencias / confirmadas) * 100).toFixed(1)) : null,
+    };
+  });
 }
 
 function buildTopCalls() {
   return [
-    { nombre: 'María García',      calificacion: 5, duracion: 312, fecha: '08/09', resumen: 'Paciente muy interesada en implantes All-on-4, se explica proceso y agenda cita', recordingUrl: '#', outcome: 'appointment_scheduled', agendado: true },
-    { nombre: 'Carlos López',      calificacion: 5, duracion: 247, fecha: '11/09', resumen: 'Consulta sobre financiación, acepta plan de 48 meses con seguro', recordingUrl: '#', outcome: 'appointment_scheduled', agendado: true },
-    { nombre: 'Ana Martínez',      calificacion: 5, duracion: 378, fecha: '15/09', resumen: 'Segunda opinión tras presupuesto en otra clínica más cara, satisfecha', recordingUrl: '#', outcome: 'appointment_scheduled', agendado: true },
-    { nombre: 'Pedro Sánchez',     calificacion: 4, duracion: 198, fecha: '17/09', resumen: 'Interesado en carillas de porcelana, solicita información sobre promociones', recordingUrl: '#', outcome: 'appointment_scheduled', agendado: true },
-    { nombre: 'Javier Ruiz',       calificacion: 3, duracion: 156, fecha: '19/09', resumen: 'Duda sobre precio, quedan en volver a llamar tras hablar con su pareja', recordingUrl: '#', outcome: 'callback', agendado: false },
+    { nombre: 'María García',  calificacion: 5, duracion: 312, fecha: '08/09', resumen: 'Paciente muy interesada en implantes All-on-4, se explica proceso y agenda cita', recordingUrl: '#', outcome: 'appointment_scheduled', agendado: true },
+    { nombre: 'Carlos López',  calificacion: 5, duracion: 247, fecha: '11/09', resumen: 'Consulta sobre financiación, acepta plan de 48 meses con seguro', recordingUrl: '#', outcome: 'appointment_scheduled', agendado: true },
+    { nombre: 'Ana Martínez',  calificacion: 5, duracion: 378, fecha: '15/09', resumen: 'Segunda opinión tras presupuesto en otra clínica más cara, satisfecha', recordingUrl: '#', outcome: 'appointment_scheduled', agendado: true },
+    { nombre: 'Pedro Sánchez', calificacion: 4, duracion: 198, fecha: '17/09', resumen: 'Interesado en carillas de porcelana, solicita información sobre promociones', recordingUrl: '#', outcome: 'appointment_scheduled', agendado: true },
+    { nombre: 'Javier Ruiz',   calificacion: 3, duracion: 156, fecha: '19/09', resumen: 'Duda sobre precio, quedan en volver a llamar tras hablar con su pareja', recordingUrl: '#', outcome: 'callback', agendado: false },
   ];
 }
 
@@ -189,7 +280,6 @@ function buildObjeciones(base) {
     { label: 'Ubicación',           share: 0.09 },
     { label: 'Callback',            share: 0.07 },
   ];
-  // Solo un tercio de los contactados terminan con una objecion registrada.
   const total = Math.round(base * 0.35);
   const out = raw.map((o) => {
     const count = Math.max(1, Math.round(total * o.share));
@@ -210,7 +300,6 @@ function buildObjeciones(base) {
 }
 
 function buildHistorico() {
-  // 4 meses hacia atras, cerrando en el mes pasado con las cifras ancla.
   return [
     { mes: 'Jun 25', leads: 218, citas: 105, asistidas:  62, coste: 605.4, eurPorCita: 5.77 },
     { mes: 'Jul 25', leads: 248, citas: 132, asistidas:  78, coste: 704.8, eurPorCita: 5.34 },
@@ -220,17 +309,15 @@ function buildHistorico() {
 }
 
 export function buildDemoData(period = 'last_month') {
-  const totalLeads = DEMO_TARGETS.totalLeads;                             // 300
-  const leadsContactados = DEMO_TARGETS.leadsContactados;                 // 271
-  const tasaAgSobreLeads = DEMO_TARGETS.tasaAgendamientoSobreLeads;       // 0.60
+  const totalLeads = DEMO_TARGETS.totalLeads;
+  const leadsContactados = DEMO_TARGETS.leadsContactados;
+  const tasaAgSobreLeads = DEMO_TARGETS.tasaAgendamientoSobreLeads;
 
-  // 60 % de los leads del periodo terminan agendando cita nueva => 180.
   const leadsAgendadosNuevos = Math.round(totalLeads * tasaAgSobreLeads); // 180
   const citasNuevas = leadsAgendadosNuevos;                               // 180
-  const citasRescate = 22;                                                // leads antiguos rescatados
+  const citasRescate = 22;
   const citasAgendadas = citasNuevas + citasRescate;                      // 202
 
-  // Asistencias: 60 % de asistencia sobre agendadas, 18 % de no-show.
   const citasAsistidas = Math.round(citasAgendadas * 0.60);               // 121
   const citasNoShow    = Math.round(citasAgendadas * 0.18);               // 36
   const confirmadas    = citasAsistidas + citasNoShow;
@@ -238,35 +325,50 @@ export function buildDemoData(period = 'last_month') {
     ? parseFloat(((citasNoShow / confirmadas) * 100).toFixed(1))
     : null;
 
-  const intentosPorLeadNuevo = 3.4;
-  const llamadasNuevas = Math.round(totalLeads * intentosPorLeadNuevo);   // 1020
+  // Intentos para agendar: llamadas a leads del periodo / leads con cita nueva.
+  // Con 180 cierres y ~3.4 intentos medios por cita = ~612 llamadas a leads.
+  const intentosParaAgendar = 3.4;
+  const llamadasNuevas = Math.round(leadsAgendadosNuevos * intentosParaAgendar); // 612
   const llamadasReintento = 285;
-  const totalLlamadas = llamadasNuevas + llamadasReintento;               // 1305
+  const totalLlamadas = llamadasNuevas + llamadasReintento;               // 897
+  const totalLlamadasFacturables = totalLlamadas + 240; // webcalls y pruebas que SI cuentan en facturacion
   const leadsConReintento = 118;
   const reintentosPorLead = parseFloat((llamadasReintento / leadsConReintento).toFixed(2));
 
   const tiempoContactoMin = 3.2;
-  const callMinutes = parseFloat((totalLlamadas * tiempoContactoMin).toFixed(1));
+  const callMinutes = parseFloat((totalLlamadasFacturables * tiempoContactoMin).toFixed(1));
   const costeLlamadas = parseFloat((callMinutes * defaultConfig.costePorMinuto).toFixed(2));
-  const tiempoRespuestaSeg = 38;
+  const tiempoRespuestaSeg = 37;
 
   const evolucion = buildEvolucion(totalLeads, leadsContactados, citasNuevas);
   const asistenciasRecientes = buildAsistencias(Math.min(citasAsistidas, 12), Math.min(citasNoShow, 5));
-  const campanas = buildCampanas(totalLeads, leadsContactados, citasNuevas);
+  const campanas = buildCampanas(totalLeads, leadsContactados, citasNuevas, citasAsistidas);
+  const comparativaPlataformas = buildComparativaPlataformas(campanas, confirmadas);
   const objeciones = buildObjeciones(leadsContactados);
   const historico = buildHistorico();
 
+  // Agendamiento por llamada: hasta 10 intentos + 11+. Total = 180.
   const agendamientoPorIntento = {
-    buckets: { 1: 75, 2: 48, 3: 30, 4: 15, 5: 8, '6+': 4 },
+    buckets: { 1: 68, 2: 44, 3: 28, 4: 16, 5: 10, 6: 6, 7: 3, 8: 2, 9: 1, 10: 1, '11+': 1 },
     total: 180,
     sinLlamada: 0,
   };
+
+  // Experimento llamada en fin de semana
+  const finSemanaAceptan = 42;
+  const finSemanaAgendados = 28;
+  const finSemanaPrimera = 19;
+
+  // Repesca (desde octubre): citas recuperadas por callback.
+  const repescaAgendados = 14;
+  const repescaIntentosMedios = 2.3;
 
   return {
     periodInfo: periodDescriptor(period),
     totalLeads,
     leadsContactados,
     totalLlamadas,
+    totalLlamadasFacturables,
     llamadasAtendidas: leadsContactados,
     llamadasNuevas,
     llamadasReintento,
@@ -281,9 +383,15 @@ export function buildDemoData(period = 'last_month') {
     tasaNoShow,
     asistenciasRecientes,
     citasPendientesConfirmar: [],
-    intentosPorLeadNuevo,
+    intentosPorLeadNuevo: intentosParaAgendar,
     reintentosPorLead,
     serieReintentos: buildSerieReintentos(),
+    repescaAgendados,
+    repescaIntentosMedios,
+    repescaLlamadasTotales: Math.round(repescaAgendados * repescaIntentosMedios),
+    finSemanaAceptan,
+    finSemanaAgendados,
+    finSemanaPrimera,
     tiempoContactoMin,
     tiempoRespuestaSeg,
     costeLlamadas,
@@ -294,6 +402,7 @@ export function buildDemoData(period = 'last_month') {
     objeciones,
     segmentos: { hayPrevios: false },
     campanas,
+    comparativaPlataformas,
     leadsRecientes: buildLeadsRecientes(),
     callbacks: buildCallbacks(),
     topCalls: buildTopCalls(),
